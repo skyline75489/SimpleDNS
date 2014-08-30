@@ -11,12 +11,13 @@ from twisted.python import log
 
 
 class DispatchResolver(client.Resolver):
-    def __init__(self, dispatch_conf, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60, tcp_only=False, tcp_timeout=10):
+    def __init__(self, dispatch_conf, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60, tcp_only=False, tcp_timeout=10, verbose=0):
         self.serverMap = {}
         self.addressMap = {}
         self.minTTL = minTTL
         self.tcp_only = tcp_only
         self.tcp_timeout = tcp_timeout
+        self.verbose = verbose
 
         self.parseDispatchConfig(dispatch_conf)
         client.Resolver.__init__(self, servers=servers, timeout = timeout)
@@ -75,14 +76,16 @@ class DispatchResolver(client.Resolver):
             try:
                 _path = '.'.join(name.split('.')[begin:end])
                 address = self.serverMap[_path]
-                log.msg('Dispatch server match for ' + name)
+                if self.verbose > 0:
+                    log.msg('Dispatch server match for ' + name)
                 break;
             except KeyError:
                 pass
             finally:
                 begin = begin - 1
         else:
-            log.msg('Dispatch server mismatch for ' + name)
+            if self.verbose > 0:
+                log.msg('Dispatch server mismatch for ' + name)
             address = self.servers[0]
         return address
 
@@ -176,7 +179,8 @@ class DispatchResolver(client.Resolver):
             try:
                 _path = '.'.join(name.split('.')[begin:end])
                 address = self.addressMap[_path]
-                log.msg('Dispatch address match for ' + name)
+                if self.verbose > 0:
+                    log.msg('Dispatch address match for ' + name)
                 records = packRecords(name, address)
                 return records
             except KeyError:
@@ -184,7 +188,8 @@ class DispatchResolver(client.Resolver):
             finally:
                 begin = begin - 1
         else:
-            log.msg('Dispatch address mismatch for ' + name)
+            if self.verbose > 0:
+                log.msg('Dispatch address mismatch for ' + name)
             return None
 
     def lookupAddress(self, name, timeout=None):
@@ -234,8 +239,9 @@ class ExtendCacheResolver(cache.CacheResolver):
             pass
 
         self.cache[query] = (cacheTime or self._reactor.seconds(), payload)
-        if self.verbose > 1:
+        if self.verbose > 0:
             log.msg('Adding %r to cache' % query)
+        if self.verbose > 1:
             log.msg('Cache used (%d / %d)' % (self.cache.used, self.cache.size_limit))
 
         if query in self.cancel:
@@ -258,7 +264,7 @@ class ExtendCacheResolver(cache.CacheResolver):
         self.cancel[query] = self._reactor.callLater(m, self.clearEntry, query)
 
 def main():
-    parser = argparse.ArgumentParser(description="Lightful yet powerful DNS proxy.")
+    parser = argparse.ArgumentParser(description="A Lightweight yet useful DNS proxy.")
     parser.add_argument('-b', '--local-address', type=str,
                         help='local address to listen',
                         default='127.0.0.1',
@@ -289,30 +295,36 @@ def main():
     parser.add_argument('-t', '--tcp-server', 
                         help="enables TCP serving",
                         action="store_true")
-    parser.add_argument('-g', '--debug', 
-                        help="print debug messages",
-                        action="store_true")
     parser.add_argument('--hosts-file',
-                        help="hosts file to read",
+                        help="hosts file",
                         default="../hosts")
     parser.add_argument('--dispatch-conf',
-                        help="URL dispatch conf file path",
+                        help="URL dispatch conf file",
                         default="../dispatch.conf")
+    parser.add_argument('-v', '--verbosity', type=int,
+                        choices=[0,1,2],
+                        help="output verbosity",
+                        default=0)
 
     args = parser.parse_args()
-    print(args)
-    if args.debug:
+
+    print("Listening on " + args.local_address + ':' + str(args.local_port))
+    if args.verbosity > 0:
         log.startLogging(sys.stdout)
 
     factory = server.DNSServerFactory(
-            caches = [ExtendCacheResolver(verbose=2, cacheSize=args.cache_size, minTTL=args.min_TTL, maxTTL=args.max_TTL)],
+            caches = [ExtendCacheResolver(verbose=args.verbosity, cacheSize=args.cache_size, minTTL=args.min_TTL, maxTTL=args.max_TTL)],
             clients = [
                 hosts.Resolver(args.hosts_file),
                 DispatchResolver(args.dispatch_conf, servers=[(args.upstream_address, args.upstream_port)], minTTL=args.min_TTL, tcp_only=args.tcp_only
-            )]
+            )],
+            verbose=args.verbosity
         )
-    protocol = dns.DNSDatagramProtocol(controller=factory)
 
+    protocol = dns.DNSDatagramProtocol(controller=factory)
+    if args.verbosity < 2:
+        dns.DNSDatagramProtocol.noisy = False
+        server.DNSServerFactory.noisy = False
     reactor.listenUDP(args.local_port, protocol, args.local_address)
     if args.tcp_server:
         reactor.listenTCP(args.local_port, protocol, args.local_address)
