@@ -75,27 +75,6 @@ class DispatchResolver(client.Resolver):
         if timeout is None:
             timeout = self.timeout
 
-        _path = None
-        name = str(queries[0].name)
-        end = len(name.split('.'))
-        begin = end - 1
-        address = None
-        while begin >= 0:
-            try:
-                _path = '.'.join(name.split('.')[begin:end])
-                address = self.addressMap[_path]
-                log.msg('Dispatch address match for ' + name)
-                return [dns.RRHeader(name, dns.A, dns.IN, self.minTTL,
-                         dns.Record_A(address, self.minTTL)), (),()]
-                break;
-            except KeyError:
-                pass
-            finally:
-                begin = begin - 1
-        else:
-            log.msg('Dispatch address mismatch for ' + name)
-
-
         upstream_address = self.pickServer(queries)
         d = self._query(upstream_address, queries, timeout[0])
         d.addErrback(self._reissue, upstream_address, queries, timeout)
@@ -117,25 +96,6 @@ class DispatchResolver(client.Resolver):
         return d
 
     def queryTCP(self, queries, timeout = 10):
-        _path = None
-        name = str(queries[0].name)
-        end = len(name.split('.'))
-        begin = end - 1
-        address = None
-        while begin >= 0:
-            try:
-                _path = '.'.join(name.split('.')[begin:end])
-                address = self.addressMap[_path]
-                log.msg('Dispatch address match for ' + name)
-                return [dns.RRHeader(name, dns.A, dns.IN, self.minTTL,
-                         dns.Record_A(address, self.minTTL)), (),()]
-                break;
-            except KeyError:
-                pass
-            finally:
-                begin = begin - 1
-        else:
-            log.msg('Dispatch address mismatch for ' + name)
 
         if not len(self.connections):
             address = self.pickServer(queries)
@@ -148,6 +108,28 @@ class DispatchResolver(client.Resolver):
         else:
             return self.connections[0].query(queries, timeout)
 
+    def lookupAddress(self, name, timeout=None):
+        _path = None
+        end = len(name.split('.'))
+        begin = end - 1
+        address = None
+        while begin >= 0:
+            try:
+                _path = '.'.join(name.split('.')[begin:end])
+                address = self.addressMap[_path]
+                log.msg('Dispatch address match for ' + name)
+                aRecords = tuple([dns.RRHeader(name, dns.A, dns.IN, self.minTTL,
+                         dns.Record_A(address, self.minTTL))])
+                return defer.succeed((aRecords, (), ()))
+                
+            except KeyError:
+                pass
+            finally:
+                begin = begin - 1
+        else:
+            log.msg('Dispatch address mismatch for ' + name)
+
+        return self._lookup(name, dns.IN, dns.A, timeout)
 
 class ExtendCacheResolver(cache.CacheResolver):
     def __init__(self, _cache=None, verbose=0, reactor=None, minTTL=0, maxTTL=604800):
