@@ -1,15 +1,18 @@
 import sys
 
-from twisted.internet import reactor
-from twisted.names import client, dns, server, cache
+from twisted.internet import reactor, defer
+from twisted.names import client, dns, server, cache, hosts
+from twisted.internet.abstract import isIPAddress
+
 from twisted.python import log
 
-# log.startLogging(sys.stdout)
+log.startLogging(sys.stdout)
 
 class DispatchResolver(client.Resolver):
-    def __init__(self, config, servers=None, timeout=(1, 3, 11, 45)):
+    def __init__(self, config, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60):
         self.serverMap = {}
         self.addressMap = {}
+        self.minTTL = minTTL
 
         self.parseDispatchConfig(config)
         client.Resolver.__init__(self, servers=servers, timeout = timeout)
@@ -17,6 +20,9 @@ class DispatchResolver(client.Resolver):
     def parseDispatchConfig(self, config):
         f = open(config, 'r')
         for l in f.readlines():
+            l = l.strip()
+            if l == "" or l.startswith('#'):
+                continue
             t = l.split('=')
             _type = t[0]
             _map = t[1]
@@ -25,6 +31,8 @@ class DispatchResolver(client.Resolver):
                 _path = _entry[1].strip()
                 _addr_and_port = _entry[2].strip().split('#')
                 _addr = _addr_and_port[0]
+                if not isIPAddress(_addr):
+                    continue
                 _port = "53"
                 if len(_addr_and_port) == 2:
                     _port = _addr_and_port[1]
@@ -37,31 +45,60 @@ class DispatchResolver(client.Resolver):
                 _entry = _map.split('/')
                 _path = _entry[1].strip()
                 _addr = _entry[2].strip()
+                if not isIPAddress(_addr):
+                    continue
                 self.addressMap[_path] = _addr
 
 
     def pickServer(self, queries=None):
         _path = None
-        try:
-            _path = str(queries[0].name).split('www.')[1]
-        except IndexError:
-            _path = str(queries[0].name)
+        name = str(queries[0].name)
+        end = len(name.split('.'))
+        begin = end - 1
         address = None
-        try:
-            address = self.serverMap[_path]
-            log.msg('Dispatch match for ' + _path)
-        except KeyError:
+        while begin >= 0:
+            try:
+                _path = '.'.join(name.split('.')[begin:end])
+                address = self.serverMap[_path]
+                log.msg('Dispatch server match for ' + name)
+                break;
+            except KeyError:
+                pass
+            finally:
+                begin = begin - 1
+        else:
+            log.msg('Dispatch server mismatch for ' + name)
             address = self.servers[0]
-
         return address
 
     def queryUDP(self, queries, timeout = None):
         if timeout is None:
             timeout = self.timeout
 
-        address = self.pickServer(queries)
-        d = self._query(address, queries, timeout[0])
-        d.addErrback(self._reissue, address, queries, timeout)
+        _path = None
+        name = str(queries[0].name)
+        end = len(name.split('.'))
+        begin = end - 1
+        address = None
+        while begin >= 0:
+            try:
+                _path = '.'.join(name.split('.')[begin:end])
+                address = self.addressMap[_path]
+                log.msg('Dispatch address match for ' + name)
+                return [dns.RRHeader(name, dns.A, dns.IN, self.minTTL,
+                         dns.Record_A(address, self.minTTL)), (),()]
+                break;
+            except KeyError:
+                pass
+            finally:
+                begin = begin - 1
+        else:
+            log.msg('Dispatch address mismatch for ' + name)
+
+
+        upstream_address = self.pickServer(queries)
+        d = self._query(upstream_address, queries, timeout[0])
+        d.addErrback(self._reissue, upstream_address, queries, timeout)
         return d
 
     def _reissue(self, reason, address, query, timeout):
@@ -80,6 +117,26 @@ class DispatchResolver(client.Resolver):
         return d
 
     def queryTCP(self, queries, timeout = 10):
+        _path = None
+        name = str(queries[0].name)
+        end = len(name.split('.'))
+        begin = end - 1
+        address = None
+        while begin >= 0:
+            try:
+                _path = '.'.join(name.split('.')[begin:end])
+                address = self.addressMap[_path]
+                log.msg('Dispatch address match for ' + name)
+                return [dns.RRHeader(name, dns.A, dns.IN, self.minTTL,
+                         dns.Record_A(address, self.minTTL)), (),()]
+                break;
+            except KeyError:
+                pass
+            finally:
+                begin = begin - 1
+        else:
+            log.msg('Dispatch address mismatch for ' + name)
+
         if not len(self.connections):
             address = self.pickServer(queries)
             if address is None:
@@ -119,7 +176,7 @@ class ExtendCacheResolver(cache.CacheResolver):
 
         for r in s:
             if r.ttl < self.minTTL:
-                r.ttl = self.minTTL
+                r.ttl = self.minTTL 
             if r.ttl > self.maxTTL:
                 r.ttl = self.maxTTL
         if s:
@@ -134,7 +191,9 @@ class ExtendCacheResolver(cache.CacheResolver):
 def main():
     factory = server.DNSServerFactory(
             caches = [ExtendCacheResolver(verbose=2, minTTL=60000)],
-            clients = [DispatchResolver('./dispatch.conf', servers=[("77.66.84.233", 443)]
+            clients = [
+                hosts.Resolver('./hosts'),
+                DispatchResolver('./dispatch.conf', servers=[("77.66.84.233", 443)]
             )]
         )
     protocol = dns.DNSDatagramProtocol(controller=factory)
