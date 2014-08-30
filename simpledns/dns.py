@@ -108,8 +108,20 @@ class DispatchResolver(client.Resolver):
         else:
             return self.connections[0].query(queries, timeout)
 
-    def lookupAddress(self, name, timeout=None):
-        _path = None
+    def _aRecords(self, name, address):
+        return tuple([dns.RRHeader(name, dns.A, dns.IN, self.minTTL,
+                     dns.Record_A(address, self.minTTL))])
+
+    def _aaaaRecords(self, name, address):
+        return tuple([dns.RRHeader(name, dns.AAAA, dns.IN, self.minTTL,
+                         dns.Record_AAAA(address, self.minTTL))])
+
+    def _respond(self, name, records):
+        if records:
+            return defer.succeed((records, (), ()))
+        return defer.fail(failure.Failure(dns.DomainError(name)))
+
+    def _matchAddress(self, name, packRecords):
         end = len(name.split('.'))
         begin = end - 1
         address = None
@@ -118,18 +130,29 @@ class DispatchResolver(client.Resolver):
                 _path = '.'.join(name.split('.')[begin:end])
                 address = self.addressMap[_path]
                 log.msg('Dispatch address match for ' + name)
-                aRecords = tuple([dns.RRHeader(name, dns.A, dns.IN, self.minTTL,
-                         dns.Record_A(address, self.minTTL))])
-                return defer.succeed((aRecords, (), ()))
-                
+                records = packRecords(name, address)
+                return records
             except KeyError:
                 pass
             finally:
                 begin = begin - 1
         else:
             log.msg('Dispatch address mismatch for ' + name)
+            return False
 
-        return self._lookup(name, dns.IN, dns.A, timeout)
+    def lookupAddress(self, name, timeout=None):
+        r = self._matchAddress(name, self._aRecords)
+        if r:
+            return self._respond(name, r)
+        else:
+            return self._lookup(name, dns.IN, dns.A, timeout)
+
+    def lookupIPV6Address(self, name, timeout=None):
+        r = self._matchAddress(name, self._aaaaRecords)
+        if r:
+            return self._respond(name, r)
+        else:
+            return self._lookup(name, dns.IN, dns.AAAA, timeout)
 
 class ExtendCacheResolver(cache.CacheResolver):
     def __init__(self, _cache=None, verbose=0, reactor=None, minTTL=0, maxTTL=604800):

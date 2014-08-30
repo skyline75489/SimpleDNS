@@ -90,66 +90,20 @@ def test_config_with_incorrect_server_address_config(tmpdir):
     # fallback to the default upstream server
     assert addr == ("127.0.0.2", 53)
 
-def test_config_with_correct_address_config_query_udp_1(tmpdir):
+def test_config_with_correct_address_config_query_ipv4_1(tmpdir):
     p = tmpdir.mkdir('conf').join('dispatch.conf')
     p.write('address=/example.com/1.1.1.1')
 
     d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
-    r = d.queryUDP([dns.Query(b'example.com')])
-    assert r[0].payload.dottedQuad() == '1.1.1.1'
+    r = d.lookupAddress(b'example.com')
+    def resolved(results):
+        answers, authority, additional = results
+        self.assertEqual(
+            (RRHeader(b"multiple", A, IN, self.ttl,
+                      Record_A("1.1.1.3", self.ttl)),
+             RRHeader(b"multiple", A, IN, self.ttl,
+                      Record_A("1.1.1.4", self.ttl))),
+            answers)
+    r.addCallback(resolved)
 
-def test_config_with_correct_address_config_query_udp_2(tmpdir):
-    p = tmpdir.mkdir('conf').join('dispatch.conf')
-    p.write('address=/example.com/1.1.1.1')
 
-    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
-    r = d.queryUDP([dns.Query(b'www.example.com')])
-    assert r[0].payload.dottedQuad() == '1.1.1.1'
-
-def test_config_with_correct_address_config_query_udp_3(tmpdir):
-    p = tmpdir.mkdir('conf').join('dispatch.conf')
-    p.write('address=/example.com/1.1.1.1')
-
-    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
-    r = d.queryUDP([dns.Query(b'something.something.example.com')])
-    assert r[0].payload.dottedQuad() == '1.1.1.1'
-
-def test_config_with_incorrect_address_config_query_udp(tmpdir):
-    p = tmpdir.mkdir('conf').join('dispatch.conf')
-    p.write('address=/example.com/1.1.1.')
-
-    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
-    r = d.queryUDP([dns.Query(b'www.example.com')])
-    assert not isinstance(r, dns.RRHeader)
-
-def test_config_with_correct_address_config_query_tcp_1(tmpdir):
-    p = tmpdir.mkdir('conf').join('dispatch.conf')
-    p.write('address=/example.com/1.1.1.1')
-
-    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
-    r = d.queryTCP([dns.Query(b'example.com')])
-    assert r[0].payload.dottedQuad() == '1.1.1.1'
-
-def test_config_with_correct_address_config_query_tcp_2(tmpdir):
-    p = tmpdir.mkdir('conf').join('dispatch.conf')
-    p.write('address=/example.com/1.1.1.1')
-
-    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
-    r = d.queryTCP([dns.Query(b'www.example.com')])
-    assert r[0].payload.dottedQuad() == '1.1.1.1'
-
-def test_config_with_correct_address_config_query_tcp_3(tmpdir):
-    p = tmpdir.mkdir('conf').join('dispatch.conf')
-    p.write('address=/example.com/1.1.1.1')
-
-    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
-    r = d.queryTCP([dns.Query(b'something.something.example.com')])
-    assert r[0].payload.dottedQuad() == '1.1.1.1'
-
-def test_config_with_incorrect_address_config_query_tcp(tmpdir):
-    p = tmpdir.mkdir('conf').join('dispatch.conf')
-    p.write('address=/example.com/1.1.1.')
-
-    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
-    r = d.queryTCP([dns.Query(b'www.example.com')])
-    assert not isinstance(r, dns.RRHeader)
