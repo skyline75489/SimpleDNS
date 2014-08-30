@@ -90,20 +90,66 @@ def test_config_with_incorrect_server_address_config(tmpdir):
     # fallback to the default upstream server
     assert addr == ("127.0.0.2", 53)
 
-def test_config_with_correct_address_config_query_ipv4_1(tmpdir):
+def test_config_with_correct_address_config_ipv4_query_1(tmpdir):
     p = tmpdir.mkdir('conf').join('dispatch.conf')
     p.write('address=/example.com/1.1.1.1')
 
     d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
-    r = d.lookupAddress(b'example.com')
-    def resolved(results):
-        answers, authority, additional = results
-        self.assertEqual(
-            (RRHeader(b"multiple", A, IN, self.ttl,
-                      Record_A("1.1.1.3", self.ttl)),
-             RRHeader(b"multiple", A, IN, self.ttl,
-                      Record_A("1.1.1.4", self.ttl))),
-            answers)
-    r.addCallback(resolved)
+    r = d._matchAddress(b'example.com', d._aRecords)
+    assert r[0].payload.dottedQuad() == '1.1.1.1'
 
+def test_config_with_correct_address_config_ipv4_query_2(tmpdir):
+    p = tmpdir.mkdir('conf').join('dispatch.conf')
+    p.write('address=/example.com/1.1.1.1')
 
+    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
+    r = d._matchAddress(b'www.example.com', d._aRecords)
+    assert r[0].payload.dottedQuad() == '1.1.1.1'
+
+def test_config_with_correct_address_config_ipv4_query_3(tmpdir):
+    p = tmpdir.mkdir('conf').join('dispatch.conf')
+    p.write('address=/example.com/1.1.1.1')
+
+    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
+    r = d._matchAddress(b'something.something.example.com', d._aRecords)
+    assert r[0].payload.dottedQuad() == '1.1.1.1'
+
+def test_config_with_incorrect_address_config_ipv4(tmpdir):
+    p = tmpdir.mkdir('conf').join('dispatch.conf')
+    p.write('address=/example.com/1.1.1.')
+
+    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
+    r = d._matchAddress(b'something.something.example.com', d._aRecords)
+    assert r is None
+
+def test_config_with_correct_address_config_ipv6_query_1(tmpdir):
+    p = tmpdir.mkdir('conf').join('dispatch.conf')
+    p.write('address=/example.com/::1')
+
+    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
+    r = d._matchAddress(b'example.com', d._aaaaRecords)
+    assert r[0].payload._address == '::1'
+
+def test_config_with_correct_address_config_ipv6_query_2(tmpdir):
+    p = tmpdir.mkdir('conf').join('dispatch.conf')
+    p.write('address=/example.com/::1')
+
+    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
+    r = d._matchAddress(b'www.example.com', d._aaaaRecords)
+    assert r[0].payload._address == '::1'
+
+def test_config_with_correct_address_config_ipv6_query_3(tmpdir):
+    p = tmpdir.mkdir('conf').join('dispatch.conf')
+    p.write('address=/example.com/::1')
+
+    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
+    r = d._matchAddress(b'something.something.example.com', d._aaaaRecords)
+    assert r[0].payload._address == '::1'
+
+def test_config_with_incorrect_address_config_ipv6(tmpdir):
+    p = tmpdir.mkdir('conf').join('dispatch.conf')
+    p.write('address=/example.com/::1???')
+
+    d = DispatchResolver(str(p.realpath()), servers=[("127.0.0.2", 53)])
+    r = d._matchAddress(b'example.com', d._aaaaRecords)
+    assert r is None
