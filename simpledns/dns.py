@@ -1,21 +1,36 @@
 import sys
+import socket 
+import argparse
 
+from collections import OrderedDict
 from twisted.internet import reactor, defer
 from twisted.names import client, dns, server, cache, hosts
 from twisted.internet.abstract import isIPAddress
 
 from twisted.python import log
 
-log.startLogging(sys.stdout)
 
 class DispatchResolver(client.Resolver):
-    def __init__(self, config, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60):
+    def __init__(self, config, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60, tcp_only=False, tcp_timeout=10):
         self.serverMap = {}
         self.addressMap = {}
         self.minTTL = minTTL
-
+        self.tcp_only = tcp_only
+        self.tcp_timeout = tcp_timeout
+        
         self.parseDispatchConfig(config)
         client.Resolver.__init__(self, servers=servers, timeout = timeout)
+
+    def is_address_validate(self, addr):
+        try:
+            socket.inet_aton(addr)
+            return True
+        except (socket.error, ValueError):
+            try:
+                socket.inet_pton(socket.AF_INET6, addr)
+                return True
+            except (socket.error, ValueError):
+                return False
 
     def parseDispatchConfig(self, config):
         f = open(config, 'r')
@@ -31,7 +46,7 @@ class DispatchResolver(client.Resolver):
                 _path = _entry[1].strip()
                 _addr_and_port = _entry[2].strip().split('#')
                 _addr = _addr_and_port[0]
-                if not isIPAddress(_addr):
+                if not self.is_address_validate(_addr):
                     continue
                 _port = "53"
                 if len(_addr_and_port) == 2:
@@ -45,7 +60,7 @@ class DispatchResolver(client.Resolver):
                 _entry = _map.split('/')
                 _path = _entry[1].strip()
                 _addr = _entry[2].strip()
-                if not isIPAddress(_addr):
+                if not self.is_address_validate(_addr):
                     continue
                 self.addressMap[_path] = _addr
 
@@ -108,6 +123,27 @@ class DispatchResolver(client.Resolver):
         else:
             return self.connections[0].query(queries, timeout)
 
+    def _lookup(self, name, cls, type, timeout):
+        key = (name, type, cls)
+        waiting = self._waiting.get(key)
+        if waiting is None:
+            self._waiting[key] = []
+            d = None
+            if self.tcp_only:
+                d = self.queryTCP([dns.Query(name, type, cls)], self.tcp_timeout)
+            else:
+                d = self.queryUDP([dns.Query(name, type, cls)], timeout)
+            def cbResult(result):
+                for d in self._waiting.pop(key):
+                    d.callback(result)
+                return result
+            d.addCallback(self.filterAnswers)
+            d.addBoth(cbResult)
+        else:
+            d = defer.Deferred()
+            waiting.append(d)
+        return d
+
     def _aRecords(self, name, address):
         return tuple([dns.RRHeader(name, dns.A, dns.IN, self.minTTL,
                      dns.Record_A(address, self.minTTL))])
@@ -122,6 +158,10 @@ class DispatchResolver(client.Resolver):
         return defer.fail(failure.Failure(dns.DomainError(name)))
 
     def _matchAddress(self, name, packRecords):
+        """ 
+        Check if query address matches any
+        address rule in dispatch.conf
+        """
         end = len(name.split('.'))
         begin = end - 1
         address = None
@@ -138,7 +178,7 @@ class DispatchResolver(client.Resolver):
                 begin = begin - 1
         else:
             log.msg('Dispatch address mismatch for ' + name)
-            return False
+            return None
 
     def lookupAddress(self, name, timeout=None):
         r = self._matchAddress(name, self._aRecords)
@@ -154,12 +194,29 @@ class DispatchResolver(client.Resolver):
         else:
             return self._lookup(name, dns.IN, dns.AAAA, timeout)
 
+class LimitedSizeDict(OrderedDict):
+    def __init__(self, size_limit=None,*args, **kwargs):
+        self.size_limit = size_limit
+        self.used = 0
+        OrderedDict.__init__(self, *args, **kwargs)
+        self._check_size_limit()
+    def __setitem__(self, key, value):
+        OrderedDict.__setitem__(self, key, value)
+        self._check_size_limit()
+    def _check_size_limit(self):
+        if self.size_limit is not None:
+            while len(self) > self.size_limit:
+                self.popitem(last=False)
+        self.used = len(self)
+
+
 class ExtendCacheResolver(cache.CacheResolver):
-    def __init__(self, _cache=None, verbose=0, reactor=None, minTTL=0, maxTTL=604800):
+    def __init__(self, _cache=None, verbose=0, reactor=None, cacheSize=500,minTTL=0, maxTTL=604800):
         assert maxTTL >= minTTL >= 0
         self.minTTL = minTTL
         self.maxTTL = maxTTL
         cache.CacheResolver.__init__(self, _cache, verbose, reactor)
+        self.cache = LimitedSizeDict(size_limit=cacheSize)
 
     def cacheResult(self, query, payload, cacheTime=None):
         try:
@@ -169,10 +226,10 @@ class ExtendCacheResolver(cache.CacheResolver):
         except KeyError:
             pass
 
+        self.cache[query] = (cacheTime or self._reactor.seconds(), payload)
         if self.verbose > 1:
             log.msg('Adding %r to cache' % query)
-
-        self.cache[query] = (cacheTime or self._reactor.seconds(), payload)
+            log.msg('Cache used (%d / %d)' % (self.cache.used, self.cache.size_limit))
 
         if query in self.cancel:
             self.cancel[query].cancel()
@@ -194,17 +251,63 @@ class ExtendCacheResolver(cache.CacheResolver):
         self.cancel[query] = self._reactor.callLater(m, self.clearEntry, query)
 
 def main():
+    parser = argparse.ArgumentParser(description="Lightful yet powerful DNS proxy.")
+    parser.add_argument('-b', '--local-address', type=str,
+                        help='local address to listen',
+                        default='127.0.0.1',
+                        )
+    parser.add_argument('-p', '--local-port', type=int,
+                        help="local port to listen",
+                        default=53,
+                        )
+
+    parser.add_argument('--upstream-address',type=str,
+                        help="upstream DNS server ip address",
+                        default='8.8.8.8')
+    parser.add_argument('--upstream-port',type=int,
+                        help="upstream DNS server port",
+                        default=53)
+    parser.add_argument('--tcp-only',
+                        help="use only TCP for outgoing queries",
+                        action="store_true")
+    parser.add_argument('--min-TTL', type=int,
+                        help="the minimum time a record is held in cache",
+                        default=0)
+    parser.add_argument('--max-TTL', type=int,
+                        help="the maximum time a record is held in cache",
+                        default=604800)
+    parser.add_argument('--cache-size', type=int,
+                        help="record cache size",
+                        default=500)
+    parser.add_argument('-t', '--tcp-server', 
+                        help="enables TCP serving",
+                        action="store_true")
+    parser.add_argument('-g', '--debug', 
+                        help="print debug messages",
+                        action="store_true")
+    parser.add_argument('--hosts-file',
+                        help="hosts file to read",
+                        default="hosts")
+    parser.add_argument('--dispatch-conf-file',
+                        help="URL dispatch conf file path",
+                        default="dispatch.conf")
+
+    args = parser.parse_args()
+    if args.debug:
+        log.startLogging(sys.stdout)
+
     factory = server.DNSServerFactory(
-            caches = [ExtendCacheResolver(verbose=2, minTTL=60000)],
+            caches = [ExtendCacheResolver(verbose=2, cacheSize=args.cache_size, minTTL=args.min_TTL, maxTTL=args.max_TTL)],
             clients = [
-                hosts.Resolver('./hosts'),
-                DispatchResolver('./dispatch.conf', servers=[("77.66.84.233", 443)]
+                hosts.Resolver(args.hosts_file),
+                DispatchResolver(args.dispatch_conf_file, servers=[(args.upstream_address, args.upstream_port)], minTTL=args.min_TTL, tcp_only=args.tcp_only
             )]
         )
     protocol = dns.DNSDatagramProtocol(controller=factory)
 
-    reactor.listenUDP(53, protocol)
-    reactor.listenTCP(53, factory)
+    reactor.listenUDP(args.local_port, protocol, args.local_address)
+    if args.tcp_server:
+        reactor.listenTCP(args.local_port, protocol, args.local_address)
     reactor.run()
 
 
