@@ -307,10 +307,10 @@ def main():
                         default=0)
 
     args = parser.parse_args()
+    log.startLogging(sys.stdout)
 
-    print("Listening on " + args.local_address + ':' + str(args.local_port))
-    if args.verbosity > 0:
-        log.startLogging(sys.stdout)
+    log.msg("Listening on " + args.local_address + ':' + str(args.local_port))
+    log.msg("Using " + args.upstream_address + ':' + str(args.upstream_port) + ' as upstream server')
 
     factory = server.DNSServerFactory(
             caches = [ExtendCacheResolver(verbose=args.verbosity, cacheSize=args.cache_size, minTTL=args.min_TTL, maxTTL=args.max_TTL)],
