@@ -11,14 +11,14 @@ from twisted.python import log
 
 
 class DispatchResolver(client.Resolver):
-    def __init__(self, config, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60, tcp_only=False, tcp_timeout=10):
+    def __init__(self, dispatch_conf, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60, tcp_only=False, tcp_timeout=10):
         self.serverMap = {}
         self.addressMap = {}
         self.minTTL = minTTL
         self.tcp_only = tcp_only
         self.tcp_timeout = tcp_timeout
-        
-        self.parseDispatchConfig(config)
+
+        self.parseDispatchConfig(dispatch_conf)
         client.Resolver.__init__(self, servers=servers, timeout = timeout)
 
     def is_address_validate(self, addr):
@@ -143,6 +143,13 @@ class DispatchResolver(client.Resolver):
             d = defer.Deferred()
             waiting.append(d)
         return d
+
+    def filterAnswers(self, message):
+        if message.trunc:
+            return self.queryTCP(message.queries).addCallback(self.filterAnswers)
+        if message.rCode != dns.OK:
+            return failure.Failure(self.exceptionForCode(message.rCode)(message))
+        return (message.answers, message.authority, message.additional)
 
     def _aRecords(self, name, address):
         return tuple([dns.RRHeader(name, dns.A, dns.IN, self.minTTL,
@@ -287,12 +294,13 @@ def main():
                         action="store_true")
     parser.add_argument('--hosts-file',
                         help="hosts file to read",
-                        default="hosts")
-    parser.add_argument('--dispatch-conf-file',
+                        default="../hosts")
+    parser.add_argument('--dispatch-conf',
                         help="URL dispatch conf file path",
-                        default="dispatch.conf")
+                        default="../dispatch.conf")
 
     args = parser.parse_args()
+    print(args)
     if args.debug:
         log.startLogging(sys.stdout)
 
@@ -300,7 +308,7 @@ def main():
             caches = [ExtendCacheResolver(verbose=2, cacheSize=args.cache_size, minTTL=args.min_TTL, maxTTL=args.max_TTL)],
             clients = [
                 hosts.Resolver(args.hosts_file),
-                DispatchResolver(args.dispatch_conf_file, servers=[(args.upstream_address, args.upstream_port)], minTTL=args.min_TTL, tcp_only=args.tcp_only
+                DispatchResolver(args.dispatch_conf, servers=[(args.upstream_address, args.upstream_port)], minTTL=args.min_TTL, tcp_only=args.tcp_only
             )]
         )
     protocol = dns.DNSDatagramProtocol(controller=factory)
