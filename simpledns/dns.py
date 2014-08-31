@@ -40,8 +40,8 @@ class DispatchResolver(client.Resolver):
         self.serverFactory = None
         self.parseDispatchConfig(dispatch_conf)
         client.Resolver.__init__(self, servers=servers, timeout = timeout)
-        # Try three times for each query 
-        self.timeout = (self.query_timeout, self.query_timeout, self.query_timeout)
+        # Retry three times for each query 
+        self.timeout = (self.query_timeout, self.query_timeout + 5, self.query_timeout + 15, self.query_timeout + 25)
 
     def is_address_validate(self, addr):
         try:
@@ -123,7 +123,7 @@ class DispatchResolver(client.Resolver):
 
         def closePort():
             protocol.transport.stopListening()
-        self._reactor.callLater(self.query_timeout, closePort)
+        self._reactor.callLater(args[2], closePort)
         return d
 
     def queryUDP(self, queries, timeout = None):
@@ -392,7 +392,7 @@ def main():
             caches = [ExtendCacheResolver(verbose=args.verbosity, cacheSize=args.cache_size, minTTL=args.min_TTL, maxTTL=args.max_TTL)],
             clients = [
                 hosts.Resolver(args.hosts_file),
-                DispatchResolver(args.dispatch_conf, servers=[(args.upstream_address, args.upstream_port)], minTTL=args.min_TTL, query_timeout=args.query_timeout
+                DispatchResolver(args.dispatch_conf, servers=[(args.upstream_address, args.upstream_port)], minTTL=args.min_TTL, query_timeout=args.query_timeout, verbose=args.verbosity
             )],
             verbose=args.verbosity
         )
