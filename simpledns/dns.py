@@ -3,13 +3,12 @@ import socket
 import argparse
 
 from collections import OrderedDict
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, error
 from twisted.names import client, dns, server, cache, hosts
 from twisted.internet.abstract import isIPAddress
 
-from twisted.python import log
-
-
+from twisted.python import log, failure
+    
 class DispatchResolver(client.Resolver):
     def __init__(self, dispatch_conf, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60, tcp_only=False, tcp_timeout=10, verbose=0):
         self.serverMap = {}
@@ -274,12 +273,12 @@ def main():
                         default=53,
                         )
 
-    parser.add_argument('--upstream-address',type=str,
+    parser.add_argument('--upstream-ip',type=str,
                         help="upstream DNS server ip address",
-                        default='8.8.8.8')
+                        default='208.67.222.222')
     parser.add_argument('--upstream-port',type=int,
                         help="upstream DNS server port",
-                        default=53)
+                        default=5353)
     parser.add_argument('--tcp-only',
                         help="use only TCP for outgoing queries",
                         action="store_true")
@@ -305,18 +304,29 @@ def main():
                         choices=[0,1,2],
                         help="output verbosity",
                         default=0)
-
+    parser.add_argument('-q', '--quiet',
+                        help="disable output",
+                        action='store_true')
+                        
+    parser.add_argument('-V', '--version',
+                        help="show version info",
+                        action='store_true')
+                        
     args = parser.parse_args()
-    log.startLogging(sys.stdout)
+    if args.version:
+        print("SimpleDNS 0.1")
+        return
+    if not args.quiet:
+        log.startLogging(sys.stdout)
 
     log.msg("Listening on " + args.local_address + ':' + str(args.local_port))
-    log.msg("Using " + args.upstream_address + ':' + str(args.upstream_port) + ' as upstream server')
+    log.msg("Using " + args.upstream_ip + ':' + str(args.upstream_port) + ' as upstream server')
 
     factory = server.DNSServerFactory(
             caches = [ExtendCacheResolver(verbose=args.verbosity, cacheSize=args.cache_size, minTTL=args.min_TTL, maxTTL=args.max_TTL)],
             clients = [
                 hosts.Resolver(args.hosts_file),
-                DispatchResolver(args.dispatch_conf, servers=[(args.upstream_address, args.upstream_port)], minTTL=args.min_TTL, tcp_only=args.tcp_only
+                DispatchResolver(args.dispatch_conf, servers=[(args.upstream_ip, args.upstream_port)], minTTL=args.min_TTL, tcp_only=args.tcp_only
             )],
             verbose=args.verbosity
         )
@@ -325,10 +335,14 @@ def main():
     if args.verbosity < 2:
         dns.DNSDatagramProtocol.noisy = False
         server.DNSServerFactory.noisy = False
-    reactor.listenUDP(args.local_port, protocol, args.local_address)
-    if args.tcp_server:
-        reactor.listenTCP(args.local_port, protocol, args.local_address)
-    reactor.run()
+    try:
+        reactor.listenUDP(args.local_port, protocol, args.local_address)
+        if args.tcp_server:
+            reactor.listenTCP(args.local_port, factory, interface=args.local_address)
+        reactor.run()
+    except error.CannotListenError:
+        log.msg("Couldn't listen on " + args.local_address + ':' + str(args.local_port))
+        log.msg('Try using sudo to run this program')
 
 
 if __name__ == "__main__":
