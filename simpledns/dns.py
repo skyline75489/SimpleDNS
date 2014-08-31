@@ -31,7 +31,7 @@ GFW_LIST = set(["74.125.127.102", "74.125.155.102", "74.125.39.102",
 
 
 class DispatchResolver(client.Resolver):
-    def __init__(self, dispatch_conf, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60, query_timeout=10, verbose=0):
+    def __init__(self, dispatch_conf, servers=None, timeout=(10, 15, 20, 45), minTTL=60*60, query_timeout=10, verbose=0):
         self.serverMap = {}
         self.addressMap = {}
         self.minTTL = minTTL
@@ -136,6 +136,7 @@ class DispatchResolver(client.Resolver):
     def _reissue(self, reason, address, query, timeout):
         reason.trap(dns.DNSQueryTimeoutError)
 
+        timeout = timeout[1:]
         # If all timeout values have been used this query has failed.  Tell the
         # protocol we're giving up on it and return a terminal timeout failure
         # to our caller.
@@ -327,7 +328,7 @@ class ExtendServerFactory(server.DNSServerFactory):
             message=message, rCode=dns.OK,
             answers=ans, authority=auth, additional=add)
 
-        if isinstance(ans[0], dns.RRHeader) and ans[0].type == 1 and ans[0].payload.dottedQuad() in  ['37.61.54.158', '59.24.3.173']:
+        if ans and isinstance(ans[0], dns.RRHeader) and ans[0].type == 1 and ans[0].payload.dottedQuad() in  ['37.61.54.158', '59.24.3.173']:
             log.msg("Spurious IP detected")
             return
         self.sendReply(protocol, response, address)
@@ -341,7 +342,7 @@ class ExtendServerFactory(server.DNSServerFactory):
             )
 
 def main():
-    parser = argparse.ArgumentParser(description="A Lightweight yet useful DNS proxy.")
+    parser = argparse.ArgumentParser(description="A lightweight yet useful proxy DNS server")
     parser.add_argument('-b', '--local-address', type=str,
                         help='local address to listen',
                         default='127.0.0.1',
@@ -359,7 +360,7 @@ def main():
                         default=53)
     parser.add_argument('--query-timeout', type=int,
                         help="time before close port used for querying",
-                        default=15)
+                        default=10)
     parser.add_argument('--min-TTL', type=int,
                         help="the minimum time a record is held in cache",
                         default=0)
