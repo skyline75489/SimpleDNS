@@ -31,7 +31,7 @@ GFW_LIST = set(["74.125.127.102", "74.125.155.102", "74.125.39.102",
 
 
 class DispatchResolver(client.Resolver):
-    def __init__(self, dispatch_conf, servers=None, timeout=(10, 15, 20, 45), minTTL=60*60, query_timeout=10, verbose=0):
+    def __init__(self, dispatch_conf, servers=None, timeout=None, minTTL=60*60, query_timeout=10, verbose=0):
         self.serverMap = {}
         self.addressMap = {}
         self.minTTL = minTTL
@@ -40,6 +40,8 @@ class DispatchResolver(client.Resolver):
         self.serverFactory = None
         self.parseDispatchConfig(dispatch_conf)
         client.Resolver.__init__(self, servers=servers, timeout = timeout)
+        # Try three times for each query 
+        self.timeout = (self.query_timeout, self.query_timeout, self.query_timeout)
 
     def is_address_validate(self, addr):
         try:
@@ -137,14 +139,9 @@ class DispatchResolver(client.Resolver):
         reason.trap(dns.DNSQueryTimeoutError)
 
         timeout = timeout[1:]
-        # If all timeout values have been used this query has failed.  Tell the
-        # protocol we're giving up on it and return a terminal timeout failure
-        # to our caller.
         if not timeout:
             return failure.Failure(defer.TimeoutError(query))
 
-        # Issue a query to a server.  Use the current timeout.  Add this
-        # function as a timeout errback in case another retry is required.
         d = self._query(address, query, timeout[0], reason.value.id)
         d.addErrback(self._reissue, address, query, timeout)
         return d
@@ -323,14 +320,15 @@ class ExtendServerFactory(server.DNSServerFactory):
                 time.time() - message.timeReceived))
 
     def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
-
+        # Filter spurious ip
+        if ans and isinstance(ans[0], dns.RRHeader) and ans[0].type == 1 and ans[0].payload.dottedQuad() in  ['37.61.54.158', '59.24.3.173']:
+            log.msg("Spurious IP detected")
+            return
         response = self._responseFromMessage(
             message=message, rCode=dns.OK,
             answers=ans, authority=auth, additional=add)
 
-        if ans and isinstance(ans[0], dns.RRHeader) and ans[0].type == 1 and ans[0].payload.dottedQuad() in  ['37.61.54.158', '59.24.3.173']:
-            log.msg("Spurious IP detected")
-            return
+
         self.sendReply(protocol, response, address)
 
         l = len(ans) + len(auth) + len(add)
