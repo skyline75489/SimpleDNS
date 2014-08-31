@@ -1,24 +1,43 @@
 import sys
 import socket 
 import argparse
+import time
 
 from collections import OrderedDict
 from twisted.internet import reactor, defer
 from twisted.names import client, dns, server, cache, hosts
 from twisted.internet.abstract import isIPAddress
 
-from twisted.python import log
+from twisted.python import log, failure
+
+info = sys.version_info
+if not (info[0] == 2 and info[1] >= 7):
+    print 'Python 2.7 required'
+    sys.exit(1)
+
+
+GFW_LIST = set(["74.125.127.102", "74.125.155.102", "74.125.39.102",
+                "74.125.39.113", "209.85.229.138", "128.121.126.139",
+                "159.106.121.75", "169.132.13.103", "192.67.198.6",
+                "202.106.1.2", "202.181.7.85", "203.161.230.171",
+                "203.98.7.65", "207.12.88.98", "208.56.31.43",
+                "209.145.54.50", "209.220.30.174", "209.36.73.33",
+                "211.94.66.147", "213.169.251.35", "216.221.188.182",
+                "216.234.179.13", "243.185.187.39", "37.61.54.158",
+                "4.36.66.178", "46.82.174.68", "59.24.3.173", "64.33.88.161",
+                "64.33.99.47", "64.66.163.251", "65.104.202.252",
+                "65.160.219.113", "66.45.252.237", "72.14.205.104",
+                "72.14.205.99", "78.16.49.15", "8.7.198.45", "93.46.8.89"])
 
 
 class DispatchResolver(client.Resolver):
-    def __init__(self, dispatch_conf, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60, tcp_only=False, tcp_timeout=10, verbose=0):
+    def __init__(self, dispatch_conf, servers=None, timeout=(1, 3, 11, 45), minTTL=60*60, query_timeout=10, verbose=0):
         self.serverMap = {}
         self.addressMap = {}
         self.minTTL = minTTL
-        self.tcp_only = tcp_only
-        self.tcp_timeout = tcp_timeout
+        self.query_timeout = query_timeout
         self.verbose = verbose
-
+        self.serverFactory = None
         self.parseDispatchConfig(dispatch_conf)
         client.Resolver.__init__(self, servers=servers, timeout = timeout)
 
@@ -32,6 +51,10 @@ class DispatchResolver(client.Resolver):
                 return True
             except (socket.error, ValueError):
                 return False
+
+    def messageReceived(self, message, protocol, address = None):
+        message.timeReceived = time.time()
+        self.serverFactory.gotResolverResponse( (message.answers, message.authority, message.additional), protocol, message, address)
 
     def parseDispatchConfig(self, config):
         f = open(config, 'r')
@@ -89,6 +112,18 @@ class DispatchResolver(client.Resolver):
             address = self.servers[0]
         return address
 
+    def _query(self, *args):
+        protocol = self._connectedProtocol()
+        d = protocol.query(*args)
+        def cbQueried(result):
+            return result
+        d.addBoth(cbQueried)
+
+        def closePort():
+            protocol.transport.stopListening()
+        self._reactor.callLater(self.query_timeout, closePort)
+        return d
+
     def queryUDP(self, queries, timeout = None):
         if timeout is None:
             timeout = self.timeout
@@ -131,11 +166,7 @@ class DispatchResolver(client.Resolver):
         waiting = self._waiting.get(key)
         if waiting is None:
             self._waiting[key] = []
-            d = None
-            if self.tcp_only:
-                d = self.queryTCP([dns.Query(name, type, cls)], self.tcp_timeout)
-            else:
-                d = self.queryUDP([dns.Query(name, type, cls)], timeout)
+            d = self.queryUDP([dns.Query(name, type, cls)], timeout)
             def cbResult(result):
                 for d in self._waiting.pop(key):
                     d.callback(result)
@@ -263,6 +294,52 @@ class ExtendCacheResolver(cache.CacheResolver):
 
         self.cancel[query] = self._reactor.callLater(m, self.clearEntry, query)
 
+class ExtendServerFactory(server.DNSServerFactory):
+    def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
+        server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
+        clients[1].serverFactory = self
+
+    def sendReply(self, protocol, message, address):
+
+        if self.verbose > 1:
+            s = ' '.join([str(a.payload) for a in message.answers])
+            auth = ' '.join([str(a.payload) for a in message.authority])
+            add = ' '.join([str(a.payload) for a in message.additional])
+            if not s:
+                log.msg("Replying with no answers")
+            else:
+                log.msg("Answers are " + s)
+                log.msg("Authority is " + auth)
+                log.msg("Additional is " + add)
+
+        if address is None:
+            protocol.writeMessage(message)
+        else:
+            protocol.writeMessage(message, address)
+
+        self._verboseLog(
+            "Processed query in %0.3f seconds" % (
+                time.time() - message.timeReceived))
+
+    def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
+
+        response = self._responseFromMessage(
+            message=message, rCode=dns.OK,
+            answers=ans, authority=auth, additional=add)
+
+        if isinstance(ans[0], dns.RRHeader) and ans[0].type == 1 and ans[0].payload.dottedQuad() in  ['37.61.54.158', '59.24.3.173']:
+            log.msg("Spurious IP detected")
+            return
+        self.sendReply(protocol, response, address)
+
+        l = len(ans) + len(auth) + len(add)
+        self._verboseLog("Lookup found %d record%s" % (l, l != 1 and "s" or ""))
+
+        if self.cache and l:
+            self.cache.cacheResult(
+                message.queries[0], (ans, auth, add)
+            )
+
 def main():
     parser = argparse.ArgumentParser(description="A Lightweight yet useful DNS proxy.")
     parser.add_argument('-b', '--local-address', type=str,
@@ -280,9 +357,9 @@ def main():
     parser.add_argument('--upstream-port',type=int,
                         help="upstream DNS server port",
                         default=53)
-    parser.add_argument('--tcp-only',
-                        help="use only TCP for outgoing queries",
-                        action="store_true")
+    parser.add_argument('--query-timeout', type=int,
+                        help="time before close port used for querying",
+                        default=15)
     parser.add_argument('--min-TTL', type=int,
                         help="the minimum time a record is held in cache",
                         default=0)
@@ -312,11 +389,11 @@ def main():
     log.msg("Listening on " + args.local_address + ':' + str(args.local_port))
     log.msg("Using " + args.upstream_address + ':' + str(args.upstream_port) + ' as upstream server')
 
-    factory = server.DNSServerFactory(
+    factory = ExtendServerFactory(
             caches = [ExtendCacheResolver(verbose=args.verbosity, cacheSize=args.cache_size, minTTL=args.min_TTL, maxTTL=args.max_TTL)],
             clients = [
                 hosts.Resolver(args.hosts_file),
-                DispatchResolver(args.dispatch_conf, servers=[(args.upstream_address, args.upstream_port)], minTTL=args.min_TTL, tcp_only=args.tcp_only
+                DispatchResolver(args.dispatch_conf, servers=[(args.upstream_address, args.upstream_port)], minTTL=args.min_TTL, query_timeout=args.query_timeout
             )],
             verbose=args.verbosity
         )
@@ -327,7 +404,7 @@ def main():
         server.DNSServerFactory.noisy = False
     reactor.listenUDP(args.local_port, protocol, args.local_address)
     if args.tcp_server:
-        reactor.listenTCP(args.local_port, protocol, args.local_address)
+        reactor.listenTCP(args.local_port, factory, interface=args.local_address)
     reactor.run()
 
 
