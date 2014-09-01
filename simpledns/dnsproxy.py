@@ -317,16 +317,16 @@ class ExtendCacheResolver(cache.CacheResolver):
             m = 0
 
         self.cancel[query] = self._reactor.callLater(m, self.clearEntry, query)
-        
+
     def clearEntry(self, query):
         try:
             del self.cache[query]
             del self.cancel[query]
-        # Cache entry already removed 
+        # Cache entry already removed
         # due to the cacheSize limit
         except KeyError:
             pass
-            
+
 
 class ExtendDNSDatagramProtocol(dns.DNSDatagramProtocol):
 
@@ -425,21 +425,21 @@ def main():
         return
     if not args.quiet:
         log.startLogging(sys.stdout)
-        
+
     addr = args.bind_addr
     port = args.bind_port
     log.msg("Listening on " + addr + ':' + str(port))
     log.msg("Using " + args.upstream_ip + ':' +
             str(args.upstream_port) + ' as upstream server')
-           
-    hosts_file = None 
+
+    hosts_file = None
     if not args.hosts_file:
         hosts_file = '/etc/hosts'
         if os.environ.__contains__('WINDIR'):
             hosts_file = os.environ['WINDIR'] + '/system32/drivers/etc/hosts'
     else:
         hosts_file = args.hosts_file
-        
+
     factory = server.DNSServerFactory(
         caches=[ExtendCacheResolver(
             verbose=args.verbosity, cacheSize=args.cache_size, minTTL=args.min_ttl, maxTTL=args.max_ttl)],
