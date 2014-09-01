@@ -64,7 +64,20 @@ Advanced
 	  -q, --quiet           disable output
 	  -V, --version         print version number and exit
 	  
+Configuration
+-------------
+
+Dispatch conf file uses the same rule as in `Dnsmasq <http://www.thekelleys.org.uk/dnsmasq/doc.html>`__. 'Address' and 'Server' rules are supported.
+
+::
+
+	address=/example1.com/1.1.1.1
+	server=/example2.com/1.1.1.2
 	  
+	  
+Default dispatch conf file is from `dnsmasq-china-list <https://github.com/felixonmars/dnsmasq-china-list>`__.
+
+
 License
 -------
 
