@@ -5,7 +5,7 @@ with open('README.rst') as f:
 		
 setup(
 	name="simpledns",
-    version="0.1.0",
+    version="0.1.1",
 	license="MIT",
 	description="A lightweight yet useful proxy DNS server",
 	author='skyline75489',
