@@ -4,16 +4,16 @@ import os
 # require import
 import py2exe
 # require shadowsocks
-sspath = os.path.abspath(os.path.join(sys.path[-1], "twisted"))
+twpath = os.path.abspath(os.path.join(sys.path[-1], "twisted"))
 
-if not os.path.isdir(sspath):
+if not os.path.isdir(twpath):
 	raise IOError("require twisted")
 
 with open('README.rst') as f:
 	long_description = f.read()
 		
 includes = ["twisted", "zope.interface"]
-console = [os.path.join("simpledns", "dns.py")]
+console = [os.path.join("simpledns", "dnsproxy.py")]
 
 setup(
 	name="simpledns",
@@ -23,10 +23,9 @@ setup(
 	author_email='skyline75489@outlook.com',
 	url='https://github.com/skyline75489/SimpleDNS',
 	packages=['simpledns'],
-	data_files=["README.md", "LICENSE", "config.json"],
+	data_files=["README.md", "LICENSE", "dispatch.conf"],
 	options={'py2exe': {
 		'includes': includes,
-		#'dll_excludes': ['w9xpopen.exe'],
 		'bundle_files': 1,
 		'compressed': True}},
 	console=console,

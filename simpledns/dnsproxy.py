@@ -1,13 +1,36 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+# Copyright (c) 2014 skyline75489
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+import os
 import sys
 import socket
 import argparse
 import time
 
 from collections import OrderedDict
+
 from twisted.internet import reactor, defer, error
 from twisted.names import client, dns, server, cache, hosts
 from twisted.internet.abstract import isIPAddress
-
 from twisted.python import log, failure
 
 info = sys.version_info
@@ -342,11 +365,11 @@ class ExtendDNSDatagramProtocol(dns.DNSDatagramProtocol):
 def main():
     parser = argparse.ArgumentParser(
         description="A lightweight yet useful proxy DNS server")
-    parser.add_argument('-b', '--local-address', type=str,
+    parser.add_argument('-b', '--bind-addr', type=str,
                         help='local address to listen',
                         default='127.0.0.1',
                         )
-    parser.add_argument('-p', '--local-port', type=int,
+    parser.add_argument('-p', '--bind-port', type=int,
                         help="local port to listen",
                         default=53,
                         )
@@ -373,7 +396,7 @@ def main():
                         action="store_true")
     parser.add_argument('--hosts-file',
                         help="hosts file",
-                        default="../hosts")
+                        default="")
     parser.add_argument('--dispatch-conf',
                         help="URL dispatch conf file",
                         default="../dispatch.conf")
@@ -395,15 +418,23 @@ def main():
     if not args.quiet:
         log.startLogging(sys.stdout)
 
-    log.msg("Listening on " + args.local_address + ':' + str(args.local_port))
+    log.msg("Listening on " + args.bind_addr + ':' + str(args.bind_port))
     log.msg("Using " + args.upstream_ip + ':' +
             str(args.upstream_port) + ' as upstream server')
-
+           
+    hosts_file = None 
+    if not args.hosts_file:
+        hosts_file = '/etc/hosts'
+        if os.environ.__contains__('WINDIR'):
+            hosts_file = os.environ['WINDIR'] + '/system32/drivers/etc/hosts'
+    else:
+        hosts_file = args.hosts_file
+        
     factory = server.DNSServerFactory(
         caches=[ExtendCacheResolver(
             verbose=args.verbosity, cacheSize=args.cache_size, minTTL=args.min_ttl, maxTTL=args.max_ttl)],
         clients=[
-            hosts.Resolver(args.hosts_file),
+            hosts.Resolver(hosts_file),
             DispatchResolver(args.dispatch_conf, servers=[(args.upstream_ip, args.upstream_port)], minTTL=args.min_ttl, query_timeout=args.query_timeout, verbose=args.verbosity
                              )],
         verbose=args.verbosity
@@ -414,10 +445,10 @@ def main():
         dns.DNSDatagramProtocol.noisy = False
         server.DNSServerFactory.noisy = False
     try:
-        reactor.listenUDP(args.local_port, protocol, args.local_address)
+        reactor.listenUDP(args.bind_port, protocol, args.bind_addr)
         if args.tcp_server:
             reactor.listenTCP(
-                args.local_port, factory, interface=args.local_address)
+                args.bind_port, factory, interface=args.bind_addr)
         reactor.run()
     except error.CannotListenError:
         log.msg(
