@@ -1,6 +1,9 @@
 SimpleDNS
 =========
 
+.. image:: https://badge.fury.io/py/simpledns.png
+    :target: http://badge.fury.io/py/simpledns
+	
 A lightweight yet useful proxy DNS server 
 
 Install
@@ -81,4 +84,4 @@ Default dispatch conf file is from `dnsmasq-china-list <https://github.com/felix
 License
 -------
 
-MIT
+The MIT License
