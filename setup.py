@@ -1,11 +1,12 @@
-from setuptools import setup
+from setuptools import setuptools
+from simpledns.dnsproxy import __version__ as VERSION
 
 with open('README.rst') as f:
     long_description = f.read()
 
 setup(
     name="simpledns",
-    version="0.1.1",
+    version=VERSION,
     license="MIT",
     description="A lightweight yet useful proxy DNS server",
     author='skyline75489',

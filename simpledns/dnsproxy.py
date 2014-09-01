@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+__version__ = '0.1.2'
+
 import os
 import sys
 import socket
@@ -421,7 +423,7 @@ def main():
 
     args = parser.parse_args()
     if args.version:
-        print("SimpleDNS 0.1")
+	    print("SimpleDNS " + __version__)
         return
     if not args.quiet:
         log.startLogging(sys.stdout)
