@@ -321,7 +321,7 @@ class ExtendServerFactory(server.DNSServerFactory):
 
     def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
         # Filter spurious ip
-        if ans and isinstance(ans[0], dns.RRHeader) and ans[0].type == 1 and ans[0].payload.dottedQuad() in  ['37.61.54.158', '59.24.3.173']:
+        if ans and isinstance(ans[0], dns.RRHeader) and ans[0].type == 1 and ans[0].payload.dottedQuad() in GFW_LIST:
             log.msg("Spurious IP detected")
             return
         response = self._responseFromMessage(
