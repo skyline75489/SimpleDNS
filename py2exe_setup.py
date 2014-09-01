@@ -17,14 +17,14 @@ console = [os.path.join("simpledns", "dnsproxy.py")]
 
 setup(
 	name="simpledns",
-    version="0.1.0"
+    version="0.1.1",
 	license="MIT",
 	description="A lightweight yet useful proxy DNS server",
 	author='skyline75489',
 	author_email='skyline75489@outlook.com',
 	url='https://github.com/skyline75489/SimpleDNS',
 	packages=['simpledns'],
-	data_files=["README.md", "LICENSE", "dispatch.conf"],
+	data_files=["README.rst", "LICENSE", "dispatch.conf"],
 	options={'py2exe': {
 		'includes': includes,
 		'bundle_files': 1,
