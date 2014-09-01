@@ -13,7 +13,7 @@ setup(
 	url='https://github.com/skyline75489/SimpleDNS',
 	packages=['simpledns'],
 	package_data={
-        'simpledns': ["README.md", "LICENSE", "dispatch.conf"],
+        'simpledns': ["README.rst", "LICENSE", "dispatch.conf"],
     },
     install_requires=[
         'twisted==14.0.0'
