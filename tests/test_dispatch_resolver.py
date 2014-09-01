@@ -5,7 +5,7 @@ from twisted.names import client, dns, server, cache
 
 sys.path.append('../')
 
-from simpledns.dns import DispatchResolver
+from simpledns.dnsproxy import DispatchResolver
 
 def test_config_with_correct_server_config_of_only_root_domain_and_only_address(tmpdir):
     p = tmpdir.mkdir('conf').join('dispatch.conf')
