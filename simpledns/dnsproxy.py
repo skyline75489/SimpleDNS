@@ -93,6 +93,8 @@ class DispatchResolver(client.Resolver):
                 return proto
 
     def parseDispatchConfig(self, config):
+        if not os.path.exists(config):
+            return
         f = open(config, 'r')
         for l in f.readlines():
             l = l.strip()
@@ -417,8 +419,10 @@ def main():
         return
     if not args.quiet:
         log.startLogging(sys.stdout)
-
-    log.msg("Listening on " + args.bind_addr + ':' + str(args.bind_port))
+        
+    addr = args.bind_addr
+    port = args.bind_port
+    log.msg("Listening on " + addr + ':' + str(port))
     log.msg("Using " + args.upstream_ip + ':' +
             str(args.upstream_port) + ' as upstream server')
            
@@ -445,14 +449,15 @@ def main():
         dns.DNSDatagramProtocol.noisy = False
         server.DNSServerFactory.noisy = False
     try:
-        reactor.listenUDP(args.bind_port, protocol, args.bind_addr)
+        reactor.listenUDP(port, protocol, addr)
         if args.tcp_server:
             reactor.listenTCP(
-                args.bind_port, factory, interface=args.bind_addr)
+                port, factory, interface=addr)
         reactor.run()
     except error.CannotListenError:
         log.msg(
-            "Couldn't listen on " + args.local_address + ':' + str(args.local_port))
+            "Couldn't listen on " + addr + ':' + str(port))
+        log.msg('Check if BIND_PORT is already in use')
         log.msg('Try using sudo to run this program')
 
 if __name__ == "__main__":

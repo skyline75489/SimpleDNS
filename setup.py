@@ -1,35 +1,26 @@
-from distutils.core import setup
-import sys
-import os
-# require import
-import py2exe
-# require shadowsocks
-twpath = os.path.abspath(os.path.join(sys.path[-1], "twisted"))
-
-if not os.path.isdir(twpath):
-	raise IOError("require twisted")
+from setuptools import setup
 
 with open('README.rst') as f:
 	long_description = f.read()
 		
-includes = ["twisted", "zope.interface"]
-console = [os.path.join("simpledns", "dnsproxy.py")]
-
 setup(
 	name="simpledns",
-    version="0.1.0"
+    version="0.1.0",
 	license="MIT",
 	description="A lightweight yet useful proxy DNS server",
 	author='skyline75489',
 	author_email='skyline75489@outlook.com',
 	url='https://github.com/skyline75489/SimpleDNS',
 	packages=['simpledns'],
-	data_files=["README.md", "LICENSE", "dispatch.conf"],
-	options={'py2exe': {
-		'includes': includes,
-		'bundle_files': 1,
-		'compressed': True}},
-	console=console,
+	package_data={
+        'simpledns': ["README.md", "LICENSE", "dispatch.conf"],
+    },
+    install_requires=[
+        'twisted==14.0.0'
+    ],
+	entry_points={
+        'console_scripts':['simpledns = simpledns.dnsproxy:main'],
+    },
 	classifiers=[
 		'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
