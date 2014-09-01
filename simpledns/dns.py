@@ -37,7 +37,6 @@ class DispatchResolver(client.Resolver):
         self.minTTL = minTTL
         self.query_timeout = query_timeout
         self.verbose = verbose
-        self.serverFactory = None
         self.parseDispatchConfig(dispatch_conf)
         client.Resolver.__init__(self, servers=servers, timeout = timeout)
         # Retry three times for each query 
@@ -53,11 +52,21 @@ class DispatchResolver(client.Resolver):
                 return True
             except (socket.error, ValueError):
                 return False
-
-    def messageReceived(self, message, protocol, address = None):
-        message.timeReceived = time.time()
-        self.serverFactory.gotResolverResponse( (message.answers, message.authority, message.additional), protocol, message, address)
-
+    
+    def _connectedProtocol(self):
+        """
+        Return a new L{DNSDatagramProtocol} bound to a randomly selected port
+        number.
+        """
+        proto = ExtendDNSDatagramProtocol(self, reactor=self._reactor)
+        while True:
+            try:
+                self._reactor.listenUDP(dns.randomSource(), proto)
+            except error.CannotListenError:
+                pass
+            else:
+                return proto
+                
     def parseDispatchConfig(self, config):
         f = open(config, 'r')
         for l in f.readlines():
@@ -292,52 +301,45 @@ class ExtendCacheResolver(cache.CacheResolver):
 
         self.cancel[query] = self._reactor.callLater(m, self.clearEntry, query)
 
-class ExtendServerFactory(server.DNSServerFactory):
-    def __init__(self, authorities=None, caches=None, clients=None, verbose=0):
-        server.DNSServerFactory.__init__(self, authorities, caches, clients, verbose)
-        clients[1].serverFactory = self
 
-    def sendReply(self, protocol, message, address):
-
-        if self.verbose > 1:
-            s = ' '.join([str(a.payload) for a in message.answers])
-            auth = ' '.join([str(a.payload) for a in message.authority])
-            add = ' '.join([str(a.payload) for a in message.additional])
-            if not s:
-                log.msg("Replying with no answers")
-            else:
-                log.msg("Answers are " + s)
-                log.msg("Authority is " + auth)
-                log.msg("Additional is " + add)
-
-        if address is None:
-            protocol.writeMessage(message)
-        else:
-            protocol.writeMessage(message, address)
-
-        self._verboseLog(
-            "Processed query in %0.3f seconds" % (
-                time.time() - message.timeReceived))
-
-    def gotResolverResponse(self, (ans, auth, add), protocol, message, address):
-        # Filter spurious ip
+class ExtendDNSDatagramProtocol(dns.DNSDatagramProtocol):
+    def datagramReceived(self, data, addr):
+        """
+        Read a datagram, extract the message in it and trigger the associated
+        Deferred.
+        """
+        m = dns.Message()
+        try:
+            m.fromStr(data)
+        except EOFError:
+            log.msg("Truncated packet (%d bytes) from %s" % (len(data), addr))
+            return
+        except:
+            # Nothing should trigger this, but since we're potentially
+            # invoking a lot of different decoding methods, we might as well
+            # be extra cautious.  Anything that triggers this is itself
+            # buggy.
+            log.err(failure.Failure(), "Unexpected decoding error")
+            return
+        # Filter spurious ips
+        ans = m.answers
         if ans and isinstance(ans[0], dns.RRHeader) and ans[0].type == 1 and ans[0].payload.dottedQuad() in GFW_LIST:
             log.msg("Spurious IP detected")
             return
-        response = self._responseFromMessage(
-            message=message, rCode=dns.OK,
-            answers=ans, authority=auth, additional=add)
-
-
-        self.sendReply(protocol, response, address)
-
-        l = len(ans) + len(auth) + len(add)
-        self._verboseLog("Lookup found %d record%s" % (l, l != 1 and "s" or ""))
-
-        if self.cache and l:
-            self.cache.cacheResult(
-                message.queries[0], (ans, auth, add)
-            )
+            
+        if m.id in self.liveMessages:
+            d, canceller = self.liveMessages[m.id]
+            del self.liveMessages[m.id]
+            canceller.cancel()
+            # XXX we shouldn't need this hack of catching exception on callback()
+            try:
+                d.callback(m)
+            except:
+                log.err()
+            
+        else:
+            if m.id not in self.resends:
+                self.controller.messageReceived(m, self, addr)
 
 def main():
     parser = argparse.ArgumentParser(description="A lightweight yet useful proxy DNS server")
@@ -399,7 +401,7 @@ def main():
     log.msg("Listening on " + args.local_address + ':' + str(args.local_port))
     log.msg("Using " + args.upstream_ip + ':' + str(args.upstream_port) + ' as upstream server')
 
-    factory = ExtendServerFactory(
+    factory = server.DNSServerFactory(
             caches = [ExtendCacheResolver(verbose=args.verbosity, cacheSize=args.cache_size, minTTL=args.min_ttl, maxTTL=args.max_ttl)],
             clients = [
                 hosts.Resolver(args.hosts_file),
