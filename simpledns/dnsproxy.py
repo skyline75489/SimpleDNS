@@ -320,7 +320,16 @@ class ExtendCacheResolver(cache.CacheResolver):
             m = 0
 
         self.cancel[query] = self._reactor.callLater(m, self.clearEntry, query)
-
+        
+    def clearEntry(self, query):
+        try:
+            del self.cache[query]
+            del self.cancel[query]
+        # Cache entry already removed 
+        # due to the cacheSize limit
+        except KeyError:
+            pass
+            
 
 class ExtendDNSDatagramProtocol(dns.DNSDatagramProtocol):
 

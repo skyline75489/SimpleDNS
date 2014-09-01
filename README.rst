@@ -3,11 +3,11 @@ SimpleDNS
 
 A lightweight yet useful proxy DNS server 
 
-
 Install
 -------
 ::
-    $ pip install chinadns
+
+    $ pip install simpledns
 
 Usage
 -----
@@ -15,6 +15,7 @@ Usage
 Run ``sudo simpledns`` on your local machine. Then set your DNS server to 127.0.0.1.
 
 ::
+
 	$ dig www.twitter.com +short
 	twitter.com.
 	199.59.149.230
@@ -22,17 +23,18 @@ Run ``sudo simpledns`` on your local machine. Then set your DNS server to 127.0.
 	199.59.150.7
 	199.59.150.39
 
-Advanced Usage
----------------
+Advanced
+--------
 
 ::
+
 	$ simpledns -h
-	usage: dnsproxy.py [-h] [-b BIND_ADDR] [-p BIND_PORT]
-	                   [--upstream-ip UPSTREAM_IP] [--upstream-port UPSTREAM_PORT]
-	                   [--query-timeout QUERY_TIMEOUT] [--min-ttl MIN_TTL]
-	                   [--max-ttl MAX_TTL] [--cache-size CACHE_SIZE] [-t]
-	                   [--hosts-file HOSTS_FILE] [--dispatch-conf DISPATCH_CONF]
-	                   [-v {0,1,2}] [-q] [-V]
+	usage: simpledns [-h] [-b BIND_ADDR] [-p BIND_PORT]
+	                 [--upstream-ip UPSTREAM_IP] [--upstream-port UPSTREAM_PORT]
+	                 [--query-timeout QUERY_TIMEOUT] [--min-ttl MIN_TTL]
+	                 [--max-ttl MAX_TTL] [--cache-size CACHE_SIZE] [-t]
+	                 [--hosts-file HOSTS_FILE] [--dispatch-conf DISPATCH_CONF]
+	                 [-v {0,1,2}] [-q] [-V]
 
 	A lightweight yet useful proxy DNS server
 
@@ -62,3 +64,8 @@ Advanced Usage
 	  -q, --quiet           disable output
 	  -V, --version         print version number and exit
 	  
+	  
+License
+-------
+
+MIT
