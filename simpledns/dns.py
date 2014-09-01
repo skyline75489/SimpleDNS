@@ -31,7 +31,7 @@ GFW_LIST = set(["74.125.127.102", "74.125.155.102", "74.125.39.102",
 
 
 class DispatchResolver(client.Resolver):
-    def __init__(self, dispatch_conf, servers=None, timeout=None, minTTL=60*60, query_timeout=10, verbose=0):
+    def __init__(self, dispatch_conf, servers=None, timeout=None, minTTL=60*60, query_timeout=1, verbose=0):
         self.serverMap = {}
         self.addressMap = {}
         self.minTTL = minTTL
@@ -122,18 +122,6 @@ class DispatchResolver(client.Resolver):
                 log.msg('Dispatch server mismatch for ' + name)
             address = self.servers[0]
         return address
-
-    def _query(self, *args):
-        protocol = self._connectedProtocol()
-        d = protocol.query(*args)
-        def cbQueried(result):
-            return result
-        d.addBoth(cbQueried)
-
-        def closePort():
-            protocol.transport.stopListening()
-        self._reactor.callLater(args[2], closePort)
-        return d
 
     def queryUDP(self, queries, timeout = None):
         if timeout is None:
@@ -360,7 +348,7 @@ def main():
                         default=53)
     parser.add_argument('--query-timeout', type=int,
                         help="time before close port used for querying",
-                        default=10)
+                        default=1)
     parser.add_argument('--min-ttl', type=int,
                         help="the minimum time a record is held in cache",
                         default=0)
