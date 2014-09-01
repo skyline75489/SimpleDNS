@@ -302,9 +302,6 @@ class ExtendCacheResolver(cache.CacheResolver):
             log.msg('Cache used (%d / %d)' %
                     (self.cache.used, self.cache.size_limit))
 
-        if query in self.cancel:
-            self.cancel[query].cancel()
-
         s = list(payload[0]) + list(payload[1]) + list(payload[2])
 
         for r in s:
