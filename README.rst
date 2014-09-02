@@ -8,10 +8,15 @@ A lightweight yet useful proxy DNS server designed to cope with `complicated Int
 
 Install
 -------
-::
+
+* Linux/Mac OS X::
 
     $ pip install simpledns
 
+* Windows
+    
+  `Download <http://pan.baidu.com/s/1i3A9KhB>`__
+    
 Usage
 -----
 
