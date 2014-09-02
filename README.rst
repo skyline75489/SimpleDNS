@@ -88,6 +88,12 @@ Dispatch conf file uses the same rule as in `Dnsmasq <http://www.thekelleys.org.
 Default dispatch conf file is from `dnsmasq-china-list <https://github.com/felixonmars/dnsmasq-china-list/blob/master/accelerated-domains.china.conf>`__.
 
 
+TODO
+----
+
+* EDNS support
+* Negative caching
+
 License
 -------
 
