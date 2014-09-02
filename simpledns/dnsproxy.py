@@ -409,7 +409,7 @@ def main():
                         default="")
     parser.add_argument('--dispatch-conf',
                         help="URL dispatch conf file",
-                        default="../dispatch.conf")
+                        default="/usr/local/etc/simpledns/dispatch.conf")
     parser.add_argument('-v', '--verbosity', type=int,
                         choices=[0, 1, 2],
                         help="output verbosity",
@@ -423,7 +423,7 @@ def main():
 
     args = parser.parse_args()
     if args.version:
-	    print("SimpleDNS " + __version__)
+        print("SimpleDNS " + __version__)
         return
     if not args.quiet:
         log.startLogging(sys.stdout)

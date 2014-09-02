@@ -70,6 +70,8 @@ Advanced
 Configuration
 -------------
 
+Configuration file is /usr/local/etc/simpledns/dispatch.conf.
+
 Dispatch conf file uses the same rule as in `Dnsmasq <http://www.thekelleys.org.uk/dnsmasq/doc.html>`__. 'Address' and 'Server' rules are supported.
 
 ::
@@ -78,7 +80,7 @@ Dispatch conf file uses the same rule as in `Dnsmasq <http://www.thekelleys.org.
 	server=/example2.com/1.1.1.2
 	  
 	  
-Default dispatch conf file is from `dnsmasq-china-list <https://github.com/felixonmars/dnsmasq-china-list>`__.
+Default dispatch conf file is from `dnsmasq-china-list <https://github.com/felixonmars/dnsmasq-china-list/blob/master/accelerated-domains.china.conf>`__.
 
 
 License

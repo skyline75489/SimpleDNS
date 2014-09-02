@@ -1,4 +1,4 @@
-from setuptools import setuptools
+from setuptools import setup
 from simpledns.dnsproxy import __version__ as VERSION
 
 with open('README.rst') as f:
@@ -13,9 +13,7 @@ setup(
     author_email='skyline75489@outlook.com',
     url='https://github.com/skyline75489/SimpleDNS',
     packages=['simpledns'],
-    package_data={
-            'simpledns': ["README.rst", "LICENSE", "dispatch.conf"],
-    },
+    data_files=[('/usr/local/etc/simpledns',['dispatch.conf'])],
     install_requires=[
         'twisted==14.0.0'
     ],
