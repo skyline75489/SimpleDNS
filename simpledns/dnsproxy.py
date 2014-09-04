@@ -24,16 +24,15 @@ __version__ = '0.1.2'
 
 import os
 import sys
-import socket
 import argparse
-import time
 
 from collections import OrderedDict
 
 from twisted.internet import reactor, defer, error
 from twisted.names import client, dns, server, cache, hosts
-from twisted.internet.abstract import isIPAddress
 from twisted.python import log, failure
+
+from util import is_address_validate
 
 info = sys.version_info
 if not (info[0] == 2 and info[1] >= 7):
@@ -69,17 +68,6 @@ class DispatchResolver(client.Resolver):
         self.timeout = (self.query_timeout, self.query_timeout +
                         5, self.query_timeout + 15, self.query_timeout + 25)
 
-    def is_address_validate(self, addr):
-        try:
-            socket.inet_aton(addr)
-            return True
-        except (socket.error, ValueError):
-            try:
-                socket.inet_pton(socket.AF_INET6, addr)
-                return True
-            except (socket.error, ValueError):
-                return False
-
     def _connectedProtocol(self):
         """
         Return a new L{DNSDatagramProtocol} bound to a randomly selected port
@@ -110,7 +98,7 @@ class DispatchResolver(client.Resolver):
                 _path = _entry[1].strip()
                 _addr_and_port = _entry[2].strip().split('#')
                 _addr = _addr_and_port[0]
-                if not self.is_address_validate(_addr):
+                if not is_address_validate(_addr):
                     continue
                 _port = "53"
                 if len(_addr_and_port) == 2:
@@ -123,7 +111,7 @@ class DispatchResolver(client.Resolver):
                 _entry = _map.split('/')
                 _path = _entry[1].strip()
                 _addr = _entry[2].strip()
-                if not self.is_address_validate(_addr):
+                if not is_address_validate(_addr):
                     continue
                 self.addressMap[_path] = _addr
 
@@ -371,6 +359,17 @@ class ExtendDNSDatagramProtocol(dns.DNSDatagramProtocol):
             if m.id not in self.resends:
                 self.controller.messageReceived(m, self, addr)
 
+class ExtendDNSServerFactory(server.DNSServerFactory):
+    def handleQuery(self, message, protocol, address):
+        query = message.queries[0]
+
+        return self.resolver.query(query).addCallback(
+            self.gotResolverResponse, protocol, message, address
+        ).addErrback(
+            self.gotResolverError, protocol, message, address
+        )
+
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -442,7 +441,7 @@ def main():
     else:
         hosts_file = args.hosts_file
 
-    factory = server.DNSServerFactory(
+    factory = ExtendDNSServerFactory(
         caches=[ExtendCacheResolver(
             verbose=args.verbosity, cacheSize=args.cache_size, minTTL=args.min_ttl, maxTTL=args.max_ttl)],
         clients=[
