@@ -1,4 +1,5 @@
 #!/bin/sh
-
-pip install pytest
-py.test tests/
+PYTHONPATH=.
+export PYTHONPATH
+pip install pytest pytest-cov
+py.test --cov simpledns tests/
