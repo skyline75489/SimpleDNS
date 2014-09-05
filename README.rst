@@ -91,6 +91,7 @@ Default dispatch conf file is from `dnsmasq-china-list <https://github.com/felix
 TODO
 ----
 
+* Config file support
 * EDNS support
 * Negative caching
 
