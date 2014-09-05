@@ -32,7 +32,7 @@ from twisted.internet import reactor, defer, error
 from twisted.names import client, dns, server, cache, hosts
 from twisted.python import log, failure
 
-from util import is_address_validate
+from simpledns.util import is_address_validate
 
 info = sys.version_info
 if not (info[0] == 2 and info[1] >= 7):
