@@ -4,8 +4,6 @@ import os
 # require import
 import py2exe
 
-from simpledns.dnsproxy import __version__ as VERSION
-
 # require shadowsocks
 twpath = os.path.abspath(os.path.join(sys.path[-1], "twisted"))
 
@@ -20,7 +18,7 @@ console = [os.path.join("simpledns", "dnsproxy.py")]
 
 setup(
 	name="simpledns",
-    version=VERSION,
+    version="0.1.2",
 	license="MIT",
 	description="A lightweight yet useful proxy DNS server",
 	author='skyline75489',
