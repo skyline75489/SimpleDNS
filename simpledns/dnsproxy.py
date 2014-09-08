@@ -83,6 +83,9 @@ class DispatchResolver(client.Resolver):
                 return proto
 
     def parseDispatchConfig(self, config):
+        """
+        Parse dispatch config file for 'Address' and 'Server' rules
+        """
         if not os.path.exists(config):
             return
         f = open(config, 'r')
@@ -116,6 +119,10 @@ class DispatchResolver(client.Resolver):
                 self.addressMap[_path] = _addr
 
     def pickServer(self, queries=None):
+        """
+        Pick upstream server according to querying address and 'Server' rules
+        if no rule is matched, then return the default upstream server
+        """
         _path = None
         name = str(queries[0].name)
         end = len(name.split('.'))
@@ -171,31 +178,6 @@ class DispatchResolver(client.Resolver):
         else:
             return self.connections[0].query(queries, timeout)
 
-    def _lookup(self, name, cls, type, timeout):
-        key = (name, type, cls)
-        waiting = self._waiting.get(key)
-        if waiting is None:
-            self._waiting[key] = []
-            d = self.queryUDP([dns.Query(name, type, cls)], timeout)
-
-            def cbResult(result):
-                for d in self._waiting.pop(key):
-                    d.callback(result)
-                return result
-            d.addCallback(self.filterAnswers)
-            d.addBoth(cbResult)
-        else:
-            d = defer.Deferred()
-            waiting.append(d)
-        return d
-
-    def filterAnswers(self, message):
-        if message.trunc:
-            return self.queryTCP(message.queries).addCallback(self.filterAnswers)
-        if message.rCode != dns.OK:
-            return failure.Failure(self.exceptionForCode(message.rCode)(message))
-        return (message.answers, message.authority, message.additional)
-
     def _aRecords(self, name, address):
         return tuple([dns.RRHeader(name, dns.A, dns.IN, self.minTTL,
                                    dns.Record_A(address, self.minTTL))])
@@ -211,8 +193,8 @@ class DispatchResolver(client.Resolver):
 
     def _matchAddress(self, name, packRecords):
         """ 
-        Check if query address matches any
-        address rule in dispatch.conf
+        Check if querying address matches any
+        'Address' rule in dispatch.conf
         """
         end = len(name.split('.'))
         begin = end - 1
