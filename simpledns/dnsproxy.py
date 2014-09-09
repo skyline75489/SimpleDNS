@@ -33,6 +33,7 @@ from twisted.names import client, dns, server, cache, hosts
 from twisted.python import log, failure
 
 from simpledns.util import is_address_validate
+from simpledns.util import LimitedSizeDict
 
 info = sys.version_info
 if not (info[0] == 2 and info[1] >= 7):
@@ -229,25 +230,6 @@ class DispatchResolver(client.Resolver):
             return self._respond(name, r)
         else:
             return self._lookup(name, dns.IN, dns.AAAA, timeout)
-
-
-class LimitedSizeDict(OrderedDict):
-
-    def __init__(self, size_limit=None, *args, **kwargs):
-        self.size_limit = size_limit
-        self.used = 0
-        OrderedDict.__init__(self, *args, **kwargs)
-        self._check_size_limit()
-
-    def __setitem__(self, key, value):
-        OrderedDict.__setitem__(self, key, value)
-        self._check_size_limit()
-
-    def _check_size_limit(self):
-        if self.size_limit is not None:
-            while len(self) > self.size_limit:
-                self.popitem(last=False)
-        self.used = len(self)
 
 
 class ExtendCacheResolver(cache.CacheResolver):
