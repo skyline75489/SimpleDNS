@@ -26,8 +26,6 @@ import os
 import sys
 import argparse
 
-from collections import OrderedDict
-
 from twisted.internet import reactor, defer, error
 from twisted.names import client, dns, server, cache, hosts
 from twisted.python import log, failure
@@ -71,7 +69,7 @@ class DispatchResolver(client.Resolver):
 
     def _connectedProtocol(self):
         """
-        Return a new L{DNSDatagramProtocol} bound to a randomly selected port
+        Return a new L{ExtendDNSDatagramProtocol} bound to a randomly selected port
         number.
         """
         proto = ExtendDNSDatagramProtocol(self, reactor=self._reactor)
@@ -122,7 +120,7 @@ class DispatchResolver(client.Resolver):
     def pickServer(self, queries=None):
         """
         Pick upstream server according to querying address and 'Server' rules
-        if no rule is matched, then return the default upstream server
+        if no rule is matched, return the default upstream server
         """
         _path = None
         name = str(queries[0].name)
@@ -167,7 +165,6 @@ class DispatchResolver(client.Resolver):
         return d
 
     def queryTCP(self, queries, timeout=10):
-
         if not len(self.connections):
             address = self.pickServer(queries)
             if address is None:
@@ -302,7 +299,8 @@ class ExtendDNSDatagramProtocol(dns.DNSDatagramProtocol):
             # buggy.
             log.err(failure.Failure(), "Unexpected decoding error")
             return
-        # Filter spurious ips
+        # Filter spurious ips. If answer section matches any address in GFW_LIST
+        # we discard this datagram directly
         ans = m.answers
         if ans and isinstance(ans[0], dns.RRHeader) and ans[0].type == 1 and ans[0].payload.dottedQuad() in GFW_LIST:
             log.msg("Spurious IP detected")
@@ -324,6 +322,7 @@ class ExtendDNSDatagramProtocol(dns.DNSDatagramProtocol):
                 self.controller.messageReceived(m, self, addr)
 
 class ExtendDNSServerFactory(server.DNSServerFactory):
+    #TODO Negtive caching support
     def handleQuery(self, message, protocol, address):
         query = message.queries[0]
 
@@ -332,7 +331,6 @@ class ExtendDNSServerFactory(server.DNSServerFactory):
         ).addErrback(
             self.gotResolverError, protocol, message, address
         )
-
 
 
 def main():
