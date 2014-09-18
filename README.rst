@@ -6,6 +6,13 @@ SimpleDNS
 	
 A lightweight yet useful proxy DNS server designed to cope with `complicated Internet environment <http://en.wikipedia.org/wiki/Great_Firewall_of_China#Blocking_methods>`__ in China, inspired by `ChinaDNS <https://github.com/clowwindy/ChinaDNS>`__ , `dnsmasq-chinadns <https://github.com/styx-hy/dnsmasq-chinadns>`__ and `fqdns <https://github.com/fqrouter/fqdns>`__, powered by `Twisted <https://twistedmatrix.com/trac/>`__.
 
+Requirement
+-----------
+
+* Python 2.7
+* Twisted
+* Tornado for using Tornado IOLoop(optional)
+
 Install
 -------
 
