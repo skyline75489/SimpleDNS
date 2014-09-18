@@ -26,9 +26,23 @@ import os
 import sys
 import argparse
 
-from twisted.internet import reactor, defer, error
+# By default, Twisted uses epoll on Linux, poll on other non-OS X POSIX 
+# platforms and select everywhere else. This means that Twisted will 
+# use select on Mac OS X instead of kqueue. Tornado uses epoll on Linux,
+# kqueue on Mac OS X and select on everywhere else. I think Tornado's choice
+# is better than Twisted. So we try to use Tornado IOLoop first, and use Twisted
+# default reactor as fallback.
+try:
+    import tornado.ioloop
+    import tornado.platform.twisted
+    tornado.platform.twisted.install()
+    from twisted.internet import reactor,defer, error
+except ImportError:
+    from twisted.internet import reactor, defer, error
+
 from twisted.names import client, dns, server, cache, hosts
 from twisted.python import log, failure
+
 
 from simpledns.util import is_address_validate
 from simpledns.util import LimitedSizeDict
@@ -422,7 +436,11 @@ def main():
         if args.tcp_server:
             reactor.listenTCP(
                 port, factory, interface=addr)
-        reactor.run()
+        try:
+            tornado.ioloop.IOLoop.instance().start()
+        except NameError:
+            log.msg("Tornado not found. Using twisted reactor")
+            reactor.run()
     except error.CannotListenError:
         log.msg(
             "Couldn't listen on " + addr + ':' + str(port))
