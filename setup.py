@@ -14,7 +14,7 @@ setup(
     packages=['simpledns'],
     data_files=[('/usr/local/etc/simpledns',['dispatch.conf'])],
     install_requires=[
-        'twisted==14.0.0'
+        'twisted>=14.0.0'
     ],
     entry_points={
         'console_scripts': ['simpledns = simpledns.dnsproxy:main'],
