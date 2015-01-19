@@ -44,8 +44,7 @@ from twisted.names import client, dns, server, cache, hosts
 from twisted.python import log, failure
 
 
-from simpledns.util import is_address_validate
-from simpledns.util import LimitedSizeDict
+from .util import is_address_validate, LimitedSizeDict
 
 info = sys.version_info
 if not (info[0] == 2 and info[1] >= 7):
