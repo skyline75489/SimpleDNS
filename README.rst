@@ -38,6 +38,8 @@ Run ``sudo simpledns`` on your local machine. Then set your DNS server to 127.0.
 	199.59.150.7
 	199.59.150.39
 
+You can also use `--min-ttl` to extend the cache lifetime.
+
 Advanced
 --------
 
@@ -82,7 +84,7 @@ Advanced
 Configuration
 -------------
 
-Configuration file is /usr/local/etc/simpledns/dispatch.conf.
+Configuration file is at /usr/local/etc/simpledns/dispatch.conf.
 
 Dispatch conf file uses the same rule as in `Dnsmasq <http://www.thekelleys.org.uk/dnsmasq/doc.html>`__. 'Address' and 'Server' rules are supported.
 
@@ -94,6 +96,7 @@ Dispatch conf file uses the same rule as in `Dnsmasq <http://www.thekelleys.org.
 	  
 Default dispatch conf file is from `dnsmasq-china-list <https://github.com/felixonmars/dnsmasq-china-list/blob/master/accelerated-domains.china.conf>`__.
 
+Fake ip list file is at /usr/local/ect/simpledns/iplist/txt. The source is `ChinaDNS <https://github.com/shadowsocks/ChinaDNS/blob/master/iplist.txt>`__.
 
 TODO
 ----
