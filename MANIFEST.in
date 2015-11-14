@@ -1,1 +1,2 @@
-include *.conf
+include dispatch.conf
+include iplist.txt

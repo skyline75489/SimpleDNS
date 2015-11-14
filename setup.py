@@ -12,7 +12,7 @@ setup(
     author_email='skyline75489@outlook.com',
     url='https://github.com/skyline75489/SimpleDNS',
     packages=['simpledns'],
-    data_files=[('/usr/local/etc/simpledns',['dispatch.conf'])],
+    data_files=[('/usr/local/etc/simpledns',['dispatch.conf', 'iplist.txt'])],
     install_requires=[
         'twisted>=14.0.0'
     ],

@@ -46,25 +46,19 @@ from twisted.python import log, failure
 
 from .util import is_address_validate, LimitedSizeDict
 
-info = sys.version_info
-if not (info[0] == 2 and info[1] >= 7):
-    print 'Python 2.7 required'
+version_parts = sys.version_info
+if not (version_parts[0] == 2 and version_parts[1] == 7):
+    print("python 2.7 required")
     sys.exit(1)
 
+GFW_LIST = read_iplist('/usr/local/etc/simpledns/iplist.txt')
 
-GFW_LIST = set(["74.125.127.102", "74.125.155.102", "74.125.39.102",
-                "74.125.39.113", "209.85.229.138", "128.121.126.139",
-                "159.106.121.75", "169.132.13.103", "192.67.198.6",
-                "202.106.1.2", "202.181.7.85", "203.161.230.171",
-                "203.98.7.65", "207.12.88.98", "208.56.31.43",
-                "209.145.54.50", "209.220.30.174", "209.36.73.33",
-                "211.94.66.147", "213.169.251.35", "216.221.188.182",
-                "216.234.179.13", "243.185.187.39", "37.61.54.158",
-                "4.36.66.178", "46.82.174.68", "59.24.3.173", "64.33.88.161",
-                "64.33.99.47", "64.66.163.251", "65.104.202.252",
-                "65.160.219.113", "66.45.252.237", "72.14.205.104",
-                "72.14.205.99", "78.16.49.15", "8.7.198.45", "93.46.8.89"])
-
+def read_iplist(path):
+    r = set()
+    with open(path) as f:
+        for l in f.readlines():
+            r.add(l.strip())
+    return r
 
 class DispatchResolver(client.Resolver):
 
@@ -392,13 +386,10 @@ def main():
                         help="disable output",
                         action='store_true')
     parser.add_argument('-V', '--version',
-                        help="print version number and exit",
-                        action='store_true')
+                        action='version',
+                        version="%(prog)s " + str(__version__))
 
     args = parser.parse_args()
-    if args.version:
-        print("SimpleDNS " + __version__)
-        return
     if not args.quiet:
         log.startLogging(sys.stdout)
 
