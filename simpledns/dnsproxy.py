@@ -238,7 +238,7 @@ class DispatchResolver(client.Resolver):
 
 class ExtendCacheResolver(cache.CacheResolver):
 
-    def __init__(self, _cache=None, verbose=0, reactor=None, cacheSize=500, minTTL=0, maxTTL=604800):
+    def __init__(self, _cache=None, verbose=0, reactor=None, cacheSize=1000, minTTL=0, maxTTL=604800):
         assert maxTTL >= minTTL >= 0
         self.minTTL = minTTL
         self.maxTTL = maxTTL
@@ -368,7 +368,7 @@ def main():
                         default=604800)
     parser.add_argument('--cache-size', type=int,
                         help="record cache size",
-                        default=500)
+                        default=1000)
     parser.add_argument('-t', '--tcp-server',
                         help="enables TCP serving",
                         action="store_true")
