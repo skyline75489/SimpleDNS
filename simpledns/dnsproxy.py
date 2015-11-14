@@ -51,14 +51,14 @@ if not (version_parts[0] == 2 and version_parts[1] == 7):
     print("python 2.7 required")
     sys.exit(1)
 
-GFW_LIST = read_iplist('/usr/local/etc/simpledns/iplist.txt')
-
 def read_iplist(path):
     r = set()
     with open(path) as f:
         for l in f.readlines():
             r.add(l.strip())
     return r
+
+GFW_LIST = read_iplist('/usr/local/etc/simpledns/iplist.txt')
 
 class DispatchResolver(client.Resolver):
 
