@@ -38,7 +38,7 @@ Run ``sudo simpledns`` on your local machine. Then set your DNS server to 127.0.
 	199.59.150.7
 	199.59.150.39
 
-You can also use `--min-ttl` to extend the cache lifetime.
+Note that the default cache lifetime depends on the ttl of DNS answer. You may want to set a larger ttl using --min-ttl to extend the cache lifetime.
 
 Advanced
 --------
