@@ -44,7 +44,7 @@ from twisted.names import client, dns, server, cache, hosts
 from twisted.python import log, failure
 
 
-from .util import is_address_validate, LimitedSizeDict
+from .util import is_address_validate, LRUCache
 
 version_parts = sys.version_info
 if not (version_parts[0] == 2 and version_parts[1] == 7):
@@ -243,7 +243,7 @@ class ExtendCacheResolver(cache.CacheResolver):
         self.minTTL = minTTL
         self.maxTTL = maxTTL
         cache.CacheResolver.__init__(self, _cache, verbose, reactor)
-        self.cache = LimitedSizeDict(size_limit=cacheSize)
+        self.cache = LRUCache(capacity=cacheSize)
 
     def cacheResult(self, query, payload, cacheTime=None):
         try:
@@ -258,7 +258,7 @@ class ExtendCacheResolver(cache.CacheResolver):
             log.msg('Adding %r to cache' % query)
         if self.verbose > 1:
             log.msg('Cache used (%d / %d)' %
-                    (self.cache.used, self.cache.size_limit))
+                    (self.cache.used, self.cache.capacity))
 
         s = list(payload[0]) + list(payload[1]) + list(payload[2])
 

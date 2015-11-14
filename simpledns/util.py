@@ -2,25 +2,41 @@ import socket
 
 from collections import OrderedDict
 
-class LimitedSizeDict(OrderedDict):
+class LRUCache(object):
     """
-    Dictionary that has limited capacity, behaves like a FIFO queue
+    Simple LRU Cache, using OrderedDict.
     """
-    def __init__(self, size_limit=None, *args, **kwargs):
-        self.size_limit = size_limit
+    def __init__(self, capacity=1000):
+        self.capacity = capacity
         self.used = 0
-        OrderedDict.__init__(self, *args, **kwargs)
-        self._check_size_limit()
+        self.cache = OrderedDict()
 
+    def get(self, key):
+        # Don't catch KeyError here, for the sake of twisted CachedResolver implementation.
+        value = self.cache.pop(key)
+        self.cache[key] = value
+        return value
+            
+    def set(self, key, value):
+        try:
+            self.cache.pop(key)
+        except KeyError:
+            if len(self.cache) >= self.capacity:
+                self.cache.popitem(last=False)
+        self.cache[key] = value
+        self.used = len(self.cache)
+         
+    def __getitem__(self, key):
+        return self.get(key)
+        
     def __setitem__(self, key, value):
-        OrderedDict.__setitem__(self, key, value)
-        self._check_size_limit()
-
-    def _check_size_limit(self):
-        if self.size_limit is not None:
-            while len(self) > self.size_limit:
-                self.popitem(last=False)
-        self.used = len(self)
+        self.set(key, value)
+        
+    def __delitem__(self, key):
+        del self.cache[key]
+        
+    def __len__(self):
+        return len(self.cache)
 
 
 def is_address_validate(addr):
