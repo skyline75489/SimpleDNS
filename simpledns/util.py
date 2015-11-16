@@ -2,21 +2,24 @@ import socket
 
 from collections import OrderedDict
 
+
 class LRUCache(object):
     """
     Simple LRU Cache, using OrderedDict.
     """
+
     def __init__(self, capacity=1000):
         self.capacity = capacity
         self.used = 0
         self.cache = OrderedDict()
 
     def get(self, key):
-        # Don't catch KeyError here, for the sake of twisted CachedResolver implementation.
+        # Don't catch KeyError here, for the sake of twisted CachedResolver
+        # implementation.
         value = self.cache.pop(key)
         self.cache[key] = value
         return value
-            
+
     def set(self, key, value):
         try:
             self.cache.pop(key)
@@ -25,16 +28,16 @@ class LRUCache(object):
                 self.cache.popitem(last=False)
         self.cache[key] = value
         self.used = len(self.cache)
-         
+
     def __getitem__(self, key):
         return self.get(key)
-        
+
     def __setitem__(self, key, value):
         self.set(key, value)
-        
+
     def __delitem__(self, key):
         del self.cache[key]
-        
+
     def __len__(self):
         return len(self.cache)
 
@@ -46,6 +49,7 @@ def is_address_validate(addr):
         return True
     else:
         return False
+
 
 def is_ipv4_address(addr):
     """ 
@@ -59,10 +63,10 @@ def is_ipv4_address(addr):
     except (socket.error, ValueError):
         return False
 
+
 def is_ipv6_address(addr):
     try:
         socket.inet_pton(socket.AF_INET6, addr)
         return True
     except (socket.error, ValueError):
         return False
-        

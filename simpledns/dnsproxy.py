@@ -25,9 +25,12 @@ __version__ = '0.1.2'
 import os
 import sys
 import argparse
-
-# By default, Twisted uses epoll on Linux, poll on other non-OS X POSIX 
-# platforms and select everywhere else. This means that Twisted will 
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+# By default, Twisted uses epoll on Linux, poll on other non-OS X POSIX
+# platforms and select everywhere else. This means that Twisted will
 # use select on Mac OS X instead of kqueue. Tornado uses epoll on Linux,
 # kqueue on Mac OS X and select on everywhere else. I think Tornado's choice
 # is better than Twisted. So we try to use Tornado IOLoop first, and use Twisted
@@ -36,7 +39,7 @@ try:
     import tornado.ioloop
     import tornado.platform.twisted
     tornado.platform.twisted.install()
-    from twisted.internet import reactor,defer, error
+    from twisted.internet import reactor, defer, error
 except ImportError:
     from twisted.internet import reactor, defer, error
 
@@ -51,6 +54,7 @@ if not (version_parts[0] == 2 and version_parts[1] == 7):
     print("python 2.7 required")
     sys.exit(1)
 
+
 def read_iplist(path):
     r = set()
     with open(path) as f:
@@ -59,6 +63,7 @@ def read_iplist(path):
     return r
 
 GFW_LIST = read_iplist('/usr/local/etc/simpledns/iplist.txt')
+
 
 class DispatchResolver(client.Resolver):
 
@@ -280,6 +285,11 @@ class ExtendCacheResolver(cache.CacheResolver):
         try:
             del self.cache[query]
             del self.cancel[query]
+            if self.verbose > 0:
+                log.msg('Purging %r from cache' % query)
+            if self.verbose > 1:
+                log.msg('Cache used (%d / %d)' %
+                        (self.cache.used, self.cache.capacity))
         # Cache entry already removed
         # due to the cacheSize limit
         except KeyError:
@@ -328,8 +338,10 @@ class ExtendDNSDatagramProtocol(dns.DNSDatagramProtocol):
             if m.id not in self.resends:
                 self.controller.messageReceived(m, self, addr)
 
+
 class ExtendDNSServerFactory(server.DNSServerFactory):
-    #TODO Negtive caching support
+    # TODO Negtive caching support
+
     def handleQuery(self, message, protocol, address):
         query = message.queries[0]
 
