@@ -54,6 +54,13 @@ if not (version_parts[0] == 2 and version_parts[1] == 7):
     print("python 2.7 required")
     sys.exit(1)
 
+IPLIST_PATH = '/usr/local/etc/simpledns/iplist.txt'
+DEFAULT_CONF_PATH = '/usr/local/etc/simpledns/dispatch.conf'
+DEFAULT_HOSTS_PATH = '/etc/hosts'
+DEFAULT_WIN_HOSTS_PATH = os.environ['WINDIR'] + '/system32/drivers/etc/hosts'
+DEFAULT_LOCAL_ADDRESS = '127.0.0.1'
+DEFAULT_LOCAL_PORT = 53
+DEFAULT_UPSTREAM_SERVER = '208.67.222.222'
 
 def read_iplist(path):
     r = set()
@@ -62,7 +69,7 @@ def read_iplist(path):
             r.add(l.strip())
     return r
 
-GFW_LIST = read_iplist('/usr/local/etc/simpledns/iplist.txt')
+GFW_LIST = read_iplist(IPLIST_PATH)
 
 
 class DispatchResolver(client.Resolver):
@@ -357,15 +364,15 @@ def main():
         description="A lightweight yet useful proxy DNS server")
     parser.add_argument('-b', '--bind-addr', type=str,
                         help='local address to listen',
-                        default='127.0.0.1',
+                        default=DEFAULT_LOCAL_ADDRESS,
                         )
     parser.add_argument('-p', '--bind-port', type=int,
                         help="local port to listen",
-                        default=53,
+                        default=DEFAULT_LOCAL_PORT,
                         )
     parser.add_argument('--upstream-ip', type=str,
                         help="upstream DNS server ip address",
-                        default='208.67.222.222')
+                        default=DEFAULT_UPSTREAM_SERVER)
     parser.add_argument('--upstream-port', type=int,
                         help="upstream DNS server port",
                         default=53)
@@ -389,7 +396,7 @@ def main():
                         default="")
     parser.add_argument('--dispatch-conf',
                         help="URL dispatch conf file",
-                        default="/usr/local/etc/simpledns/dispatch.conf")
+                        default=DEFAULT_CONF_PATH)
     parser.add_argument('-v', '--verbosity', type=int,
                         choices=[0, 1, 2],
                         help="output verbosity",
@@ -399,7 +406,7 @@ def main():
                         action='store_true')
     parser.add_argument('-V', '--version',
                         action='version',
-                        version="%(prog)s " + str(__version__))
+                        version="SimpleDNS " + str(__version__))
 
     args = parser.parse_args()
     if not args.quiet:
@@ -413,9 +420,9 @@ def main():
 
     hosts_file = None
     if not args.hosts_file:
-        hosts_file = '/etc/hosts'
+        hosts_file = DEFAULT_HOSTS_PATH
         if os.environ.__contains__('WINDIR'):
-            hosts_file = os.environ['WINDIR'] + '/system32/drivers/etc/hosts'
+            hosts_file = DEFAULT_WIN_HOSTS_PATH
     else:
         hosts_file = args.hosts_file
 
