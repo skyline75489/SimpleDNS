@@ -56,8 +56,11 @@ if not (version_parts[0] == 2 and version_parts[1] == 7):
 
 IPLIST_PATH = '/usr/local/etc/simpledns/iplist.txt'
 DEFAULT_CONF_PATH = '/usr/local/etc/simpledns/dispatch.conf'
+DEFAULT_CACHE_PATH = '/usr/local/etc/simpledns/cache.pk'
 DEFAULT_HOSTS_PATH = '/etc/hosts'
-DEFAULT_WIN_HOSTS_PATH = os.environ['WINDIR'] + '/system32/drivers/etc/hosts'
+if os.environ.__contains__('WINDIR'):
+    DEFAULT_WIN_HOSTS_PATH = os.environ['WINDIR'] + '/system32/drivers/etc/hosts'
+
 DEFAULT_LOCAL_ADDRESS = '127.0.0.1'
 DEFAULT_LOCAL_PORT = 53
 DEFAULT_UPSTREAM_SERVER = '208.67.222.222'
@@ -151,7 +154,7 @@ class DispatchResolver(client.Resolver):
                 _path = '.'.join(name.split('.')[begin:end])
                 address = self.serverMap[_path]
                 if self.verbose > 0:
-                    log.msg('Dispatch server match for ' + name)
+                    log.msg('Dispatch server match for %s: %s' % (name, address))
                 break
             except KeyError:
                 pass
@@ -254,9 +257,25 @@ class ExtendCacheResolver(cache.CacheResolver):
         assert maxTTL >= minTTL >= 0
         self.minTTL = minTTL
         self.maxTTL = maxTTL
-        cache.CacheResolver.__init__(self, _cache, verbose, reactor)
-        self.cache = LRUCache(capacity=cacheSize)
-
+        cache.CacheResolver.__init__(self, None, verbose, reactor)
+        if _cache:
+            try:
+                self.cache = pickle.load(_cache)
+                log.msg('Loading local cache')
+            except TypeError:
+                log.msg('Load local cache failed')
+                self.cache = LRUCache(capacity=cacheSize)
+        else:
+            self.cache = LRUCache(capacity=cacheSize)
+        self.updateLocalCache()
+        
+    def updateLocalCache(self):
+        log.msg('Updating local cache')
+        f = open(DEFAULT_CACHE_PATH, 'wb')
+        pickle.dump(self.cache, f)
+        f.close()
+        self._reactor.callLater(60, self.updateLocalCache) # recursive
+        
     def cacheResult(self, query, payload, cacheTime=None):
         try:
             # Already cached
@@ -426,15 +445,20 @@ def main():
     else:
         hosts_file = args.hosts_file
 
+    local_cache = None
+    if os.path.isfile(DEFAULT_CACHE_PATH):
+        local_cache = open(DEFAULT_CACHE_PATH, 'rb')
     factory = ExtendDNSServerFactory(
         caches=[ExtendCacheResolver(
-            verbose=args.verbosity, cacheSize=args.cache_size, minTTL=args.min_ttl, maxTTL=args.max_ttl)],
+            verbose=args.verbosity,_cache=local_cache, cacheSize=args.cache_size, minTTL=args.min_ttl, maxTTL=args.max_ttl)],
         clients=[
             hosts.Resolver(hosts_file),
             DispatchResolver(args.dispatch_conf, servers=[(args.upstream_ip, args.upstream_port)], minTTL=args.min_ttl, query_timeout=args.query_timeout, verbose=args.verbosity
                              )],
         verbose=args.verbosity
     )
+    if local_cache:
+        local_cache.close()
 
     protocol = dns.DNSDatagramProtocol(controller=factory)
     if args.verbosity < 2:

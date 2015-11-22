@@ -40,6 +40,9 @@ class LRUCache(object):
 
     def __len__(self):
         return len(self.cache)
+        
+    def items(self):
+        return self.cache.items()
 
 
 def is_address_validate(addr):
