@@ -274,7 +274,8 @@ class ExtendCacheResolver(cache.CacheResolver):
         f = open(DEFAULT_CACHE_PATH, 'wb')
         pickle.dump(self.cache, f)
         f.close()
-        self._reactor.callLater(60, self.updateLocalCache) # recursive
+        # updata local cache every 30 minutes
+        self._reactor.callLater(60 * 60 * 30, self.updateLocalCache)
         
     def cacheResult(self, query, payload, cacheTime=None):
         try:
