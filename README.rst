@@ -17,8 +17,9 @@ Install
 -------
 
 * Linux/Mac OS X::
-
-    $ pip install simpledns
+	
+	# Clone this project
+    $ sudo python setup.py install
 
 * Windows
     
