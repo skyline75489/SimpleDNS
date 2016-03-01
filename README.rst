@@ -17,8 +17,8 @@ Install
 -------
 
 * Linux/Mac OS X::
-	
-	# Clone this project
+
+    # Clone this project
     $ sudo python setup.py install
 
 * Windows
