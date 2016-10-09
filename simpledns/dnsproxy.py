@@ -86,8 +86,8 @@ class DispatchResolver(client.Resolver):
         self.parseDispatchConfig(dispatch_conf)
         client.Resolver.__init__(self, servers=servers, timeout=timeout)
         # Retry three times for each query
-        self.timeout = (self.query_timeout, self.query_timeout +
-                        5, self.query_timeout + 15, self.query_timeout + 25)
+        self.timeout = (self.query_timeout, self.query_timeout *
+                        2, self.query_timeout * 4, self.query_timeout * 8)
 
     def _connectedProtocol(self):
         """
