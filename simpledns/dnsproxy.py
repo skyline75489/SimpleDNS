@@ -398,7 +398,7 @@ def main():
                         default=53)
     parser.add_argument('--query-timeout', type=int,
                         help="time before close port used for querying",
-                        default=1)
+                        default=5)
     parser.add_argument('--min-ttl', type=int,
                         help="the minimum time a record is held in cache",
                         default=0)
