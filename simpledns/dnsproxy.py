@@ -85,9 +85,8 @@ class DispatchResolver(client.Resolver):
         self.verbose = verbose
         self.parseDispatchConfig(dispatch_conf)
         client.Resolver.__init__(self, servers=servers, timeout=timeout)
-        # Retry three times for each query
-        self.timeout = (self.query_timeout, self.query_timeout *
-                        2, self.query_timeout * 4, self.query_timeout * 8)
+        # Retry for each query
+        self.timeout = self.query_timeout
 
     def _connectedProtocol(self):
         """
@@ -171,20 +170,18 @@ class DispatchResolver(client.Resolver):
             timeout = self.timeout
 
         upstream_address = self.pickServer(queries)
-        d = self._query(upstream_address, queries, timeout[0])
+        d = self._query(upstream_address, queries, timeout)
         d.addErrback(self._reissue, upstream_address, queries, timeout)
         return d
 
     def _reissue(self, reason, address, query, timeout):
         reason.trap(dns.DNSQueryTimeoutError)
-
-        timeout = timeout[1:]
-        if not timeout:
-            return failure.Failure(defer.TimeoutError(query))
-
-        d = self._query(address, query, timeout[0], reason.value.id)
-        d.addErrback(self._reissue, address, query, timeout)
+        d = self._query(address, query, timeout, reason.value.id)
+        d.addErrback(self._timeout, query)
         return d
+
+    def _timeout(self, query):
+        return failure.Failure(defer.TimeoutError(query))
 
     def queryTCP(self, queries, timeout=10):
         if not len(self.connections):
