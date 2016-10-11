@@ -180,7 +180,8 @@ class DispatchResolver(client.Resolver):
         d.addErrback(self._timeout, query)
         return d
 
-    def _timeout(self, query):
+    def _timeout(self, reason, query):
+        reason.trap(dns.DNSQueryTimeoutError)
         return failure.Failure(defer.TimeoutError(query))
 
     def queryTCP(self, queries, timeout=10):
