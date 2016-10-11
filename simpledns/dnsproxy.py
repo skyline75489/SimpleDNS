@@ -176,12 +176,15 @@ class DispatchResolver(client.Resolver):
 
     def _reissue(self, reason, address, query, timeout):
         reason.trap(dns.DNSQueryTimeoutError)
+        log.msg('Retrying for %r' % query)
         d = self._query(address, query, timeout, reason.value.id)
         d.addErrback(self._timeout, query)
         return d
 
     def _timeout(self, reason, query):
         reason.trap(dns.DNSQueryTimeoutError)
+        log.msg('Timeout for %r' % query)
+        log.msg('Given up')
         return failure.Failure(defer.TimeoutError(query))
 
     def queryTCP(self, queries, timeout=10):
