@@ -484,13 +484,13 @@ def main():
             signal.signal(signal.SIGINT, lambda sig, frame: tornado.ioloop.IOLoop.instance().add_callback_from_signal(try_exit_tornado_ioloop))
             tornado.ioloop.IOLoop.instance().start()
         else:
-            log.msg("Tornado not found. Using twisted reactor")
+            log.msg("Tornado not found. Using Twisted reactor")
             reactor.run()
     except error.CannotListenError:
         log.msg(
-            "Couldn't listen on " + addr + ':' + str(port))
+            "Can not listen on " + addr + ':' + str(port))
         log.msg('Check if BIND_PORT is already in use')
-        log.msg('Try using sudo to run this program')
+        log.msg('Try to run this with sudo')
 
 if __name__ == "__main__":
     raise SystemExit(main())
