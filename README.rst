@@ -21,10 +21,6 @@ Install
     # Clone this project
     $ sudo python setup.py install
 
-* Windows
-    
-  `Download <http://pan.baidu.com/s/1i3A9KhB>`__
-    
 Usage
 -----
 
@@ -32,7 +28,7 @@ Run ``sudo simpledns`` on your local machine. Then set your DNS server to 127.0.
 
 ::
 
-	$ dig www.twitter.com +short
+	$ dig www.twitter.com +short @127.0.0.1
 	twitter.com.
 	199.59.149.230
 	199.59.148.10
@@ -109,4 +105,5 @@ TODO
 License
 -------
 
-The MIT License
+MIT License
+
