@@ -43,11 +43,10 @@ try:
     import tornado.ioloop
     import tornado.platform.twisted
     tornado.platform.twisted.install()
-    from twisted.internet import reactor, defer, error
 except ImportError:
     TORNADO_AVAILABLE = False
-    from twisted.internet import reactor, defer, error
 
+from twisted.internet import reactor, defer, error
 from twisted.names import client, dns, server, cache, hosts
 from twisted.python import log, failure
 
@@ -481,10 +480,13 @@ def main():
             reactor.listenTCP(
                 port, factory, interface=addr)
         if TORNADO_AVAILABLE:
+            if args.verbosity > 1:
+                log.msg("Using Tornado ioloop")
             signal.signal(signal.SIGINT, lambda sig, frame: tornado.ioloop.IOLoop.instance().add_callback_from_signal(try_exit_tornado_ioloop))
             tornado.ioloop.IOLoop.instance().start()
         else:
-            log.msg("Tornado not found. Using Twisted reactor")
+            if args.verbosity > 1:
+                log.msg("Using Twisted reactor")
             reactor.run()
     except error.CannotListenError:
         log.msg(
