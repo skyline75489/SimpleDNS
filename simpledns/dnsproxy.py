@@ -25,10 +25,14 @@ __version__ = '0.1.4'
 import os
 import sys
 import argparse
+import signal
 try:
     import cPickle as pickle
 except ImportError:
     import pickle
+
+TORNADO_AVAILABLE = True
+
 # By default, Twisted uses epoll on Linux, poll on other non-OS X POSIX
 # platforms and select everywhere else. This means that Twisted will
 # use select on Mac OS X instead of kqueue. Tornado uses epoll on Linux,
@@ -41,6 +45,7 @@ try:
     tornado.platform.twisted.install()
     from twisted.internet import reactor, defer, error
 except ImportError:
+    TORNADO_AVAILABLE = False
     from twisted.internet import reactor, defer, error
 
 from twisted.names import client, dns, server, cache, hosts
@@ -380,6 +385,10 @@ class ExtendDNSServerFactory(server.DNSServerFactory):
         )
 
 
+def try_exit_tornado_ioloop():
+    print('Exiting')
+    tornado.ioloop.IOLoop.instance().stop()
+
 def main():
     parser = argparse.ArgumentParser(
         description="A lightweight yet useful proxy DNS server")
@@ -471,9 +480,10 @@ def main():
         if args.tcp_server:
             reactor.listenTCP(
                 port, factory, interface=addr)
-        try:
+        if TORNADO_AVAILABLE:
+            signal.signal(signal.SIGINT, lambda sig, frame: tornado.ioloop.IOLoop.instance().add_callback_from_signal(try_exit_tornado_ioloop))
             tornado.ioloop.IOLoop.instance().start()
-        except NameError:
+        else:
             log.msg("Tornado not found. Using twisted reactor")
             reactor.run()
     except error.CannotListenError:
