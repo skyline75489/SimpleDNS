@@ -18,7 +18,7 @@ console = [os.path.join("simpledns", "dnsproxy.py")]
 
 setup(
 	name="simpledns",
-    version="0.1.2",
+	version="0.1.2",
 	license="MIT",
 	description="A lightweight yet useful proxy DNS server",
 	author='skyline75489',
@@ -33,7 +33,7 @@ setup(
 	console=console,
 	classifiers=[
 		'License :: OSI Approved :: MIT License',
-        'Operating System :: OS Independent',
+		'Operating System :: OS Independent',
 		'Programming Language :: Python :: 2',
 		'Programming Language :: Python :: 2.7',
 		'Topic :: Internet :: Proxy Servers',
