@@ -9,7 +9,7 @@ A lightweight yet useful proxy DNS server designed to cope with `complicated Int
 Requirement
 -----------
 
-* Python 2.7
+* Python 3.4
 * Twisted
 * Tornado for using Tornado IOLoop(optional)
 

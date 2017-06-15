@@ -54,8 +54,8 @@ from twisted.python import log, failure
 from .util import is_address_validate, LRUCache
 
 version_parts = sys.version_info
-if not (version_parts[0] == 2 and version_parts[1] == 7):
-    print("python 2.7 required")
+if not (version_parts[0] == 3 and version_parts[1] >= 4):
+    print("python 3.4 required")
     sys.exit(1)
 
 IPLIST_PATH = '/usr/local/etc/simpledns/iplist.txt'
