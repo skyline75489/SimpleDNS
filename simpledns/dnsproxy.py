@@ -26,6 +26,7 @@ import os
 import sys
 import argparse
 import signal
+
 try:
     import cPickle as pickle
 except ImportError:
@@ -42,6 +43,7 @@ TORNADO_AVAILABLE = True
 try:
     import tornado.ioloop
     import tornado.platform.twisted
+
     tornado.platform.twisted.install()
 except ImportError:
     TORNADO_AVAILABLE = False
@@ -49,7 +51,6 @@ except ImportError:
 from twisted.internet import reactor, defer, error
 from twisted.names import client, dns, server, cache, hosts
 from twisted.python import log, failure
-
 
 from .util import is_address_validate, LRUCache
 
@@ -69,6 +70,7 @@ DEFAULT_LOCAL_ADDRESS = '127.0.0.1'
 DEFAULT_LOCAL_PORT = 53
 DEFAULT_UPSTREAM_SERVER = '208.67.222.222'
 
+
 def read_iplist(path):
     r = set()
     with open(path) as f:
@@ -76,11 +78,11 @@ def read_iplist(path):
             r.add(l.strip())
     return r
 
+
 GFW_LIST = read_iplist(IPLIST_PATH)
 
 
 class DispatchResolver(client.Resolver):
-
     def __init__(self, dispatch_conf, servers=None, timeout=None, minTTL=60 * 60, query_timeout=1, verbose=0):
         self.serverMap = {}
         self.addressMap = {}
@@ -221,6 +223,7 @@ class DispatchResolver(client.Resolver):
         Check if querying address matches any
         'Address' rule in dispatch.conf
         """
+        name = name.decode('utf-8')
         end = len(name.split('.'))
         begin = end - 1
         address = None
@@ -257,7 +260,6 @@ class DispatchResolver(client.Resolver):
 
 
 class ExtendCacheResolver(cache.CacheResolver):
-
     def __init__(self, _cache=None, verbose=0, reactor=None, cacheSize=1000, minTTL=0, maxTTL=604800):
         assert maxTTL >= minTTL >= 0
         self.minTTL = minTTL
@@ -273,7 +275,7 @@ class ExtendCacheResolver(cache.CacheResolver):
         else:
             self.cache = LRUCache(capacity=cacheSize)
         self.updateLocalCache()
-        
+
     def updateLocalCache(self):
         log.msg('Updating local cache')
         f = open(DEFAULT_CACHE_PATH, 'wb')
@@ -281,7 +283,7 @@ class ExtendCacheResolver(cache.CacheResolver):
         f.close()
         # updata local cache every 30 minutes
         self._reactor.callLater(60 * 60 * 30, self.updateLocalCache)
-        
+
     def cacheResult(self, query, payload, cacheTime=None):
         try:
             # Already cached
@@ -329,7 +331,6 @@ class ExtendCacheResolver(cache.CacheResolver):
 
 
 class ExtendDNSDatagramProtocol(dns.DNSDatagramProtocol):
-
     def datagramReceived(self, data, addr):
         """
         Read a datagram, extract the message in it and trigger the associated
@@ -387,6 +388,7 @@ class ExtendDNSServerFactory(server.DNSServerFactory):
 def try_exit_tornado_ioloop():
     print('Exiting')
     tornado.ioloop.IOLoop.instance().stop()
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -460,10 +462,12 @@ def main():
         local_cache = open(DEFAULT_CACHE_PATH, 'rb')
     factory = ExtendDNSServerFactory(
         caches=[ExtendCacheResolver(
-            verbose=args.verbosity,_cache=local_cache, cacheSize=args.cache_size, minTTL=args.min_ttl, maxTTL=args.max_ttl)],
+            verbose=args.verbosity, _cache=local_cache, cacheSize=args.cache_size, minTTL=args.min_ttl,
+            maxTTL=args.max_ttl)],
         clients=[
             hosts.Resolver(hosts_file),
-            DispatchResolver(args.dispatch_conf, servers=[(args.upstream_ip, args.upstream_port)], minTTL=args.min_ttl, query_timeout=args.query_timeout, verbose=args.verbosity
+            DispatchResolver(args.dispatch_conf, servers=[(args.upstream_ip, args.upstream_port)], minTTL=args.min_ttl,
+                             query_timeout=args.query_timeout, verbose=args.verbosity
                              )],
         verbose=args.verbosity
     )
@@ -482,7 +486,8 @@ def main():
         if TORNADO_AVAILABLE:
             if args.verbosity > 1:
                 log.msg("Using Tornado ioloop")
-            signal.signal(signal.SIGINT, lambda sig, frame: tornado.ioloop.IOLoop.instance().add_callback_from_signal(try_exit_tornado_ioloop))
+            signal.signal(signal.SIGINT, lambda sig, frame: tornado.ioloop.IOLoop.instance().add_callback_from_signal(
+                try_exit_tornado_ioloop))
             tornado.ioloop.IOLoop.instance().start()
         else:
             if args.verbosity > 1:
@@ -493,6 +498,7 @@ def main():
             "Can not listen on " + addr + ':' + str(port))
         log.msg('Check if BIND_PORT is already in use')
         log.msg('Try to run this with sudo')
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
